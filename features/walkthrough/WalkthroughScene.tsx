@@ -105,7 +105,7 @@ export const ROOM: RoomDimensions = {
  * able to mutate it.
  */
 export const SPAWN = Object.freeze({
-  position: [0, 1.6, 13] as const,
+  position: [0, 1.6, 18] as const,
   yaw: 0,
   pitch: 0,
 });
@@ -118,7 +118,7 @@ export const SPAWN = Object.freeze({
  * the on-screen "Step inside" button.
  */
 const FOYER_DEPTH = 9;
-const FOYER_WIDTH = 18; // matches gallery width so the foyer fully covers the south wall on either side of the doorway
+const FOYER_WIDTH = 7; // narrow lobby corridor, slightly wider than the open doorway so the visitor walks straight in
 /** Width of the doorway cut into the south wall, in world units. */
 const DOORWAY_WIDTH = 5;
 /** Height of the doorway, in world units. Slightly less than ceiling height. */
@@ -161,6 +161,7 @@ import type { AABB } from "./Controls/Collisions";
 const HALF_W = ROOM.width / 2;
 const HALF_D = ROOM.depth / 2;
 const WALL_SLAB = 0.05;
+const HALF_FOYER_W = FOYER_WIDTH / 2;
 const FOYER_FRONT_Z = HALF_D; // boundary with gallery
 const FOYER_BACK_Z = HALF_D + FOYER_DEPTH; // far foyer wall
 
@@ -170,17 +171,17 @@ export const GALLERY_COLLIDERS: ReadonlyArray<AABB> = [
     min: [-HALF_W, 0, -HALF_D - WALL_SLAB],
     max: [HALF_W, ROOM.height, -HALF_D],
   },
-  // Gallery west wall (x = -HALF_W).
+  // Gallery west wall (x = -HALF_W) — only the gallery portion.
   {
     min: [-HALF_W - WALL_SLAB, 0, -HALF_D],
-    max: [-HALF_W, ROOM.height, FOYER_BACK_Z],
+    max: [-HALF_W, ROOM.height, HALF_D],
   },
-  // Gallery east wall (x = +HALF_W).
+  // Gallery east wall (x = +HALF_W) — only the gallery portion.
   {
     min: [HALF_W, 0, -HALF_D],
-    max: [HALF_W + WALL_SLAB, ROOM.height, FOYER_BACK_Z],
+    max: [HALF_W + WALL_SLAB, ROOM.height, HALF_D],
   },
-  // Gallery south wall — left of doorway.
+  // Gallery south wall — left of doorway (full gallery half-width).
   {
     min: [-HALF_W, 0, HALF_D],
     max: [-DOORWAY_WIDTH / 2, ROOM.height, HALF_D + WALL_SLAB],
@@ -190,11 +191,22 @@ export const GALLERY_COLLIDERS: ReadonlyArray<AABB> = [
     min: [DOORWAY_WIDTH / 2, 0, HALF_D],
     max: [HALF_W, ROOM.height, HALF_D + WALL_SLAB],
   },
-  // Foyer back ("street") wall — keeps the visitor from walking out
-  // the back of the foyer.
+
+  // Foyer west wall (corridor side, x = -HALF_FOYER_W).
   {
-    min: [-HALF_W, 0, FOYER_BACK_Z],
-    max: [HALF_W, ROOM.height, FOYER_BACK_Z + WALL_SLAB],
+    min: [-HALF_FOYER_W - WALL_SLAB, 0, FOYER_FRONT_Z],
+    max: [-HALF_FOYER_W, ROOM.height, FOYER_BACK_Z],
+  },
+  // Foyer east wall (corridor side, x = +HALF_FOYER_W).
+  {
+    min: [HALF_FOYER_W, 0, FOYER_FRONT_Z],
+    max: [HALF_FOYER_W + WALL_SLAB, ROOM.height, FOYER_BACK_Z],
+  },
+  // Foyer back ("street") wall — keeps the visitor from walking out
+  // the back of the foyer. Spans only the corridor width.
+  {
+    min: [-HALF_FOYER_W, 0, FOYER_BACK_Z],
+    max: [HALF_FOYER_W, ROOM.height, FOYER_BACK_Z + WALL_SLAB],
   },
 ];
 
@@ -517,12 +529,10 @@ export default WalkthroughScene;
  * above), dressed up to read as a luxury-showroom storefront on a
  * high-street avenue:
  *
- *   - Side panels are warm honed-limestone with a single recessed
- *     "display window" rectangle each. The window has a glowing back
- *     pane, an inset frame, and a darker sill so the eye reads it as
- *     a real opening rather than a flat lit poster.
- *   - The lintel above the doorway carries an awning and a backlit
- *     marquee with the boutique name rendered as 3D text.
+ *   - Side panels are warm honed-limestone, clean of any signage so
+ *     the eye goes straight to the doors.
+ *   - The lintel above the doorway carries a backlit marquee with
+ *     the boutique name rendered as 3D text.
  *
  * Geometry is derived once from `ROOM` and `DOORWAY_*` constants so
  * adjusting the room size does not require touching this helper.
@@ -536,25 +546,10 @@ function SouthWallWithDoorway() {
   const lintelHeight = ROOM.height - DOORWAY_HEIGHT;
   const lintelY = ROOM.height - lintelHeight / 2;
 
-  // Display-window dimensions, sized to fit comfortably inside each
-  // side panel (sideWidth ≈ 6.5m, ROOM.height = 4m).
-  const windowWidth = Math.min(sideWidth - 1.2, 4.5);
-  const windowHeight = 2.4;
-  const windowY = 1.7; // centred at chest height
-  const frameThickness = 0.14;
-
   // Marquee dimensions on the lintel.
   const marqueeWidth = DOORWAY_WIDTH + 0.6;
   const marqueeHeight = Math.min(lintelHeight - 0.25, 0.65);
   const marqueeY = lintelY;
-
-  // Awning slab cantilevered just above the doorway and below the
-  // marquee. Reads as a small protruding canopy that real boutiques
-  // run over the entrance.
-  const awningWidth = DOORWAY_WIDTH + 1.4;
-  const awningDepth = 0.8;
-  const awningThickness = 0.06;
-  const awningY = DOORWAY_HEIGHT + 0.05;
 
   return (
     <group data-vfg-room="wall-south-with-doorway">
@@ -601,45 +596,6 @@ function SouthWallWithDoorway() {
         />
       </mesh>
 
-      {/* Display windows */}
-      <DisplayWindow
-        x={-sideCenter}
-        y={windowY}
-        z={z + 0.02}
-        width={windowWidth}
-        height={windowHeight}
-        frameThickness={frameThickness}
-      />
-      <DisplayWindow
-        x={sideCenter}
-        y={windowY}
-        z={z + 0.02}
-        width={windowWidth}
-        height={windowHeight}
-        frameThickness={frameThickness}
-      />
-
-      {/* Awning — a small slab cantilevered over the entrance. */}
-      <mesh
-        position={[0, awningY, z + 0.02 + awningDepth / 2]}
-      >
-        <boxGeometry args={[awningWidth, awningThickness, awningDepth]} />
-        <meshStandardMaterial
-          color="#0e0e10"
-          roughness={0.55}
-          metalness={0.45}
-        />
-      </mesh>
-      {/* Awning underside — a thin warm strip glowing slightly so
-          the entrance gets a soft welcoming light from above. */}
-      <mesh
-        position={[0, awningY - awningThickness / 2 - 0.001, z + 0.02 + awningDepth / 2]}
-        rotation={[Math.PI / 2, 0, 0]}
-      >
-        <planeGeometry args={[awningWidth - 0.05, awningDepth - 0.05]} />
-        <meshBasicMaterial color="#3a2c14" toneMapped={false} />
-      </mesh>
-
       {/* Marquee plaque — backlit panel with the boutique name. */}
       <mesh position={[0, marqueeY, z + 0.025]}>
         <planeGeometry args={[marqueeWidth + 0.14, marqueeHeight + 0.14]} />
@@ -659,12 +615,11 @@ function SouthWallWithDoorway() {
         />
       </mesh>
       {/* Boutique name rendered as 3D text floating just in front of
-          the backlit plaque. The plate is rotated 180° about Y so the
-          text reads correctly from the foyer side (where the visitor
-          stands). */}
+          the backlit plaque. The text mesh's default forward is the
+          local +Z axis, which is what the foyer-side visitor sees, so
+          no Y-axis rotation is needed. */}
       <Text
         position={[0, marqueeY, z + 0.04]}
-        rotation={[0, Math.PI, 0]}
         fontSize={Math.min(marqueeHeight * 0.62, 0.42)}
         color="#0a0a0a"
         anchorX="center"
@@ -673,85 +628,6 @@ function SouthWallWithDoorway() {
       >
         GP FASHION
       </Text>
-    </group>
-  );
-}
-
-/**
- * DisplayWindow — a recessed boutique display window. Renders four
- * elements that together read as a real opening:
- *
- *   1. A dark stone outer frame slightly larger than the window.
- *   2. A glowing back pane (slightly inset) that lights the inside.
- *   3. A pair of brass-toned vertical mullions across the glass face.
- *   4. A darker sill below to ground the window in the facade.
- */
-function DisplayWindow({
-  x,
-  y,
-  z,
-  width,
-  height,
-  frameThickness,
-}: {
-  x: number;
-  y: number;
-  z: number;
-  width: number;
-  height: number;
-  frameThickness: number;
-}) {
-  const sillHeight = 0.18;
-  const mullionWidth = 0.05;
-
-  return (
-    <group position={[x, y, z]}>
-      {/* Outer frame — slightly behind so it reads as a stone surround */}
-      <mesh position={[0, 0, -0.005]}>
-        <planeGeometry
-          args={[width + frameThickness * 2, height + frameThickness * 2]}
-        />
-        <meshStandardMaterial
-          color="#1a1814"
-          roughness={0.55}
-          metalness={0.25}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      {/* Back pane — recessed slightly inside so the frame casts the
-          impression of depth around it. */}
-      <mesh position={[0, 0, -0.02]}>
-        <planeGeometry args={[width, height]} />
-        <meshBasicMaterial
-          color="#f0d493"
-          toneMapped={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      {/* Vertical mullions across the glass face — three slim brass
-          bars subdivide the window into panels. */}
-      {[-1, 0, 1].map((i) => (
-        <mesh key={i} position={[i * (width / 4), 0, 0.001]}>
-          <planeGeometry args={[mullionWidth, height]} />
-          <meshStandardMaterial
-            color="#3a2c14"
-            roughness={0.4}
-            metalness={0.6}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      ))}
-      {/* Sill below the window — visually grounds the opening in the
-          facade rather than letting it float. */}
-      <mesh position={[0, -height / 2 - frameThickness / 2 - sillHeight / 2, 0]}>
-        <planeGeometry args={[width + frameThickness * 2 + 0.2, sillHeight]} />
-        <meshStandardMaterial
-          color="#1f1d18"
-          roughness={0.6}
-          metalness={0.2}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
     </group>
   );
 }
@@ -911,7 +787,7 @@ function BackdropWindows({
   wallZ: number;
   wallWidth: number;
 }) {
-  const cols = 9;
+  const cols = 4;
   const rows = 2;
   const winW = 0.7;
   const winH = 0.55;

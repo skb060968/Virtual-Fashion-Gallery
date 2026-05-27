@@ -96,7 +96,7 @@ export function EntryOverlay() {
     if (entryStage === "foyer") beginEntry();
   }, [entryStage, beginEntry]);
 
-  if (entryStage === "foyer" || entryStage === "entering") {
+  if (entryStage === "foyer") {
     return (
       <div
         className="pointer-events-none fixed inset-0 z-30 flex flex-col items-center justify-end gap-6 px-6 pb-12 sm:pb-16"
