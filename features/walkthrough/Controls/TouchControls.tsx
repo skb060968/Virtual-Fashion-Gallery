@@ -416,6 +416,7 @@ function useHasCoarsePointer(): boolean {
 
 export function TouchJoystick() {
   const entryStage = useGalleryStore((s) => s.entryStage);
+  const zoomOpen = useGalleryStore((s) => s.zoomOpen);
   const hasCoarse = useHasCoarsePointer();
 
   // Knob offset from base center, in CSS pixels. State (not ref) so
@@ -479,9 +480,12 @@ export function TouchJoystick() {
 
   // Don't render until we're both inside the gallery and on a device
   // that actually has a coarse pointer. Keyboard-and-mouse-only users
-  // navigate with WASD and never need the joystick.
+  // navigate with WASD and never need the joystick. Also hide while
+  // the Zoom_View overlay is open so the joystick can't poke through
+  // the dialog and obscure the metadata text.
   if (!hasCoarse) return null;
   if (entryStage !== "inside") return null;
+  if (zoomOpen) return null;
   if (typeof document === "undefined") return null;
 
   const baseStyle: CSSProperties = {

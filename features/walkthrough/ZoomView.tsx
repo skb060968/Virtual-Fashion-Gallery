@@ -383,17 +383,17 @@ function ZoomViewOverlay({
           </button>
         </header>
 
-        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 pb-8 sm:flex-row sm:items-stretch sm:gap-10 sm:px-10">
+        <div className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto px-4 pb-8 sm:flex-row sm:items-center sm:justify-center sm:gap-10 sm:px-10">
           {/* Image surface (Req 3.8, 3.9) */}
           <motion.div
-            className="flex max-h-full max-w-full flex-1 items-center justify-center"
+            className="flex w-full max-w-full items-center justify-center sm:max-w-[55%] sm:flex-1"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={transition}
           >
             <div
-              className="relative flex max-h-[80vh] w-full max-w-[80vh] items-center justify-center overflow-hidden rounded-md bg-gallery-surface/70 shadow-lg"
+              className="relative flex max-h-[50vh] w-full items-center justify-center overflow-hidden rounded-md bg-gallery-surface/70 shadow-lg sm:max-h-[75vh] sm:max-w-[60vh]"
               data-testid="zoom-view-image-frame"
             >
               {showImage ? (
@@ -401,7 +401,7 @@ function ZoomViewOverlay({
                 <img
                   src={record.imageSrc}
                   alt={`${record.title} — ${record.medium}`}
-                  className="block h-auto max-h-[80vh] w-auto max-w-full object-contain"
+                  className="block h-auto max-h-[50vh] w-auto max-w-full object-contain sm:max-h-[75vh]"
                   draggable={false}
                   onLoad={onImageLoad}
                   onError={onImageError}
@@ -425,7 +425,7 @@ function ZoomViewOverlay({
                     />
                   ) : null}
                   <div
-                    className="flex h-[60vh] w-full items-center justify-center bg-gallery-muted/20 text-sm text-gallery-muted"
+                    className="flex h-[40vh] w-full items-center justify-center bg-gallery-muted/20 text-sm text-gallery-muted sm:h-[60vh]"
                     role="img"
                     aria-label={`Placeholder for ${record.title}`}
                     data-testid="zoom-view-placeholder"

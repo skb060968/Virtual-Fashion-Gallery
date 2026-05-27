@@ -52,6 +52,7 @@
  * no divergence between frame geometry and panel anchoring.
  */
 
+import { Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -516,11 +517,12 @@ export default WalkthroughScene;
  * above), dressed up to read as a luxury-showroom storefront on a
  * high-street avenue:
  *
- *   - Side panels are matte cream stone with a single illuminated
- *     "display window" rectangle each, framed in matte black so the
- *     rectangle reads as a recessed window rather than flat paint.
- *   - The lintel above the doorway hosts a long marquee signboard
- *     that picks up the bloom pass.
+ *   - Side panels are warm honed-limestone with a single recessed
+ *     "display window" rectangle each. The window has a glowing back
+ *     pane, an inset frame, and a darker sill so the eye reads it as
+ *     a real opening rather than a flat lit poster.
+ *   - The lintel above the doorway carries an awning and a backlit
+ *     marquee with the boutique name rendered as 3D text.
  *
  * Geometry is derived once from `ROOM` and `DOORWAY_*` constants so
  * adjusting the room size does not require touching this helper.
@@ -539,15 +541,24 @@ function SouthWallWithDoorway() {
   const windowWidth = Math.min(sideWidth - 1.2, 4.5);
   const windowHeight = 2.4;
   const windowY = 1.7; // centred at chest height
-  const frameThickness = 0.12;
+  const frameThickness = 0.14;
 
   // Marquee dimensions on the lintel.
-  const marqueeWidth = DOORWAY_WIDTH + 1.0;
-  const marqueeHeight = Math.min(lintelHeight - 0.2, 0.7);
+  const marqueeWidth = DOORWAY_WIDTH + 0.6;
+  const marqueeHeight = Math.min(lintelHeight - 0.25, 0.65);
+  const marqueeY = lintelY;
+
+  // Awning slab cantilevered just above the doorway and below the
+  // marquee. Reads as a small protruding canopy that real boutiques
+  // run over the entrance.
+  const awningWidth = DOORWAY_WIDTH + 1.4;
+  const awningDepth = 0.8;
+  const awningThickness = 0.06;
+  const awningY = DOORWAY_HEIGHT + 0.05;
 
   return (
     <group data-vfg-room="wall-south-with-doorway">
-      {/* Left facade panel — dark stone */}
+      {/* Left facade panel — warm honed limestone */}
       <mesh
         position={[-sideCenter, wallY, z]}
         rotation={[0, Math.PI, 0]}
@@ -555,13 +566,13 @@ function SouthWallWithDoorway() {
       >
         <planeGeometry args={[sideWidth, ROOM.height]} />
         <meshStandardMaterial
-          color="#1f1f24"
-          roughness={0.9}
-          metalness={0}
+          color="#2a2620"
+          roughness={0.7}
+          metalness={0.05}
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Right facade panel — dark stone */}
+      {/* Right facade panel */}
       <mesh
         position={[sideCenter, wallY, z]}
         rotation={[0, Math.PI, 0]}
@@ -569,13 +580,13 @@ function SouthWallWithDoorway() {
       >
         <planeGeometry args={[sideWidth, ROOM.height]} />
         <meshStandardMaterial
-          color="#1f1f24"
-          roughness={0.9}
-          metalness={0}
+          color="#2a2620"
+          roughness={0.7}
+          metalness={0.05}
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Lintel — dark stone above the doorway */}
+      {/* Lintel above doorway */}
       <mesh
         position={[0, lintelY, z]}
         rotation={[0, Math.PI, 0]}
@@ -583,17 +594,14 @@ function SouthWallWithDoorway() {
       >
         <planeGeometry args={[DOORWAY_WIDTH, lintelHeight]} />
         <meshStandardMaterial
-          color="#1f1f24"
-          roughness={0.9}
-          metalness={0}
+          color="#2a2620"
+          roughness={0.7}
+          metalness={0.05}
           side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Display window — left side. Rendered as a glowing rectangle
-          plus a matte-black frame around it. The window sits 2cm
-          forward of the facade plane on the foyer side so it doesn't
-          z-fight the wall. */}
+      {/* Display windows */}
       <DisplayWindow
         x={-sideCenter}
         y={windowY}
@@ -602,7 +610,6 @@ function SouthWallWithDoorway() {
         height={windowHeight}
         frameThickness={frameThickness}
       />
-      {/* Display window — right side */}
       <DisplayWindow
         x={sideCenter}
         y={windowY}
@@ -612,37 +619,72 @@ function SouthWallWithDoorway() {
         frameThickness={frameThickness}
       />
 
-      {/* Marquee signboard above the doorway — emits warm light so the
-          bloom pass picks it up as a soft halo, the way a backlit
-          showroom sign does. */}
-      <mesh position={[0, lintelY - 0.05, z + 0.03]}>
+      {/* Awning — a small slab cantilevered over the entrance. */}
+      <mesh
+        position={[0, awningY, z + 0.02 + awningDepth / 2]}
+      >
+        <boxGeometry args={[awningWidth, awningThickness, awningDepth]} />
+        <meshStandardMaterial
+          color="#0e0e10"
+          roughness={0.55}
+          metalness={0.45}
+        />
+      </mesh>
+      {/* Awning underside — a thin warm strip glowing slightly so
+          the entrance gets a soft welcoming light from above. */}
+      <mesh
+        position={[0, awningY - awningThickness / 2 - 0.001, z + 0.02 + awningDepth / 2]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <planeGeometry args={[awningWidth - 0.05, awningDepth - 0.05]} />
+        <meshBasicMaterial color="#3a2c14" toneMapped={false} />
+      </mesh>
+
+      {/* Marquee plaque — backlit panel with the boutique name. */}
+      <mesh position={[0, marqueeY, z + 0.025]}>
+        <planeGeometry args={[marqueeWidth + 0.14, marqueeHeight + 0.14]} />
+        <meshStandardMaterial
+          color="#0a0a0a"
+          roughness={0.45}
+          metalness={0.55}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[0, marqueeY, z + 0.03]}>
         <planeGeometry args={[marqueeWidth, marqueeHeight]} />
         <meshBasicMaterial
-          color="#fde9b3"
+          color="#f6e0a8"
           toneMapped={false}
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Marquee frame */}
-      <mesh position={[0, lintelY - 0.05, z + 0.025]}>
-        <planeGeometry args={[marqueeWidth + 0.12, marqueeHeight + 0.12]} />
-        <meshStandardMaterial
-          color="#0a0a0a"
-          roughness={0.5}
-          metalness={0.4}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {/* Boutique name rendered as 3D text floating just in front of
+          the backlit plaque. The plate is rotated 180° about Y so the
+          text reads correctly from the foyer side (where the visitor
+          stands). */}
+      <Text
+        position={[0, marqueeY, z + 0.04]}
+        rotation={[0, Math.PI, 0]}
+        fontSize={Math.min(marqueeHeight * 0.62, 0.42)}
+        color="#0a0a0a"
+        anchorX="center"
+        anchorY="middle"
+        letterSpacing={0.18}
+      >
+        GP FASHION
+      </Text>
     </group>
   );
 }
 
 /**
- * DisplayWindow — a single illuminated showroom-window rectangle sat
- * inside a matte-black frame. Used twice by `SouthWallWithDoorway`,
- * once on each side of the entrance. The window face is rendered with
- * `meshBasicMaterial + toneMapped: false` so it reads as a backlit
- * surface that the bloom pass can pick up.
+ * DisplayWindow — a recessed boutique display window. Renders four
+ * elements that together read as a real opening:
+ *
+ *   1. A dark stone outer frame slightly larger than the window.
+ *   2. A glowing back pane (slightly inset) that lights the inside.
+ *   3. A pair of brass-toned vertical mullions across the glass face.
+ *   4. A darker sill below to ground the window in the facade.
  */
 function DisplayWindow({
   x,
@@ -659,26 +701,54 @@ function DisplayWindow({
   height: number;
   frameThickness: number;
 }) {
+  const sillHeight = 0.18;
+  const mullionWidth = 0.05;
+
   return (
     <group position={[x, y, z]}>
-      {/* Outer frame (slightly larger, behind the glass) */}
+      {/* Outer frame — slightly behind so it reads as a stone surround */}
       <mesh position={[0, 0, -0.005]}>
         <planeGeometry
           args={[width + frameThickness * 2, height + frameThickness * 2]}
         />
         <meshStandardMaterial
-          color="#0a0a0a"
+          color="#1a1814"
           roughness={0.55}
-          metalness={0.3}
+          metalness={0.25}
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Glowing window pane */}
-      <mesh>
+      {/* Back pane — recessed slightly inside so the frame casts the
+          impression of depth around it. */}
+      <mesh position={[0, 0, -0.02]}>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial
-          color="#f6e5b4"
+          color="#f0d493"
           toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Vertical mullions across the glass face — three slim brass
+          bars subdivide the window into panels. */}
+      {[-1, 0, 1].map((i) => (
+        <mesh key={i} position={[i * (width / 4), 0, 0.001]}>
+          <planeGeometry args={[mullionWidth, height]} />
+          <meshStandardMaterial
+            color="#3a2c14"
+            roughness={0.4}
+            metalness={0.6}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+      {/* Sill below the window — visually grounds the opening in the
+          facade rather than letting it float. */}
+      <mesh position={[0, -height / 2 - frameThickness / 2 - sillHeight / 2, 0]}>
+        <planeGeometry args={[width + frameThickness * 2 + 0.2, sillHeight]} />
+        <meshStandardMaterial
+          color="#1f1d18"
+          roughness={0.6}
+          metalness={0.2}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -906,8 +976,8 @@ function SlidingGlassDoors() {
   // leaves "foyer". `useFrame` is the simplest cross-cutting tween
   // available without pulling in framer-motion-3d at this scale.
   const opennessRef = useRef(0);
-  const leftRef = useRef<THREE.Mesh | null>(null);
-  const rightRef = useRef<THREE.Mesh | null>(null);
+  const leftRef = useRef<THREE.Group | null>(null);
+  const rightRef = useRef<THREE.Group | null>(null);
   const leftMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const rightMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const seamMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
@@ -978,38 +1048,61 @@ function SlidingGlassDoors() {
 
   return (
     <group data-vfg-room="entry-doors">
-      {/* Left panel (slides left when opening) */}
-      <mesh
+      {/* Left door — group so the chrome handle slides with the panel. */}
+      <group
         ref={leftRef}
         position={[-panelWidth / 2, DOORWAY_HEIGHT / 2, z]}
       >
-        <planeGeometry args={[panelWidth, panelHeight]} />
-        <meshStandardMaterial
-          ref={leftMatRef}
-          color="#cdd9e6"
-          transparent
-          opacity={CLOSED_OPACITY}
-          roughness={0.4}
-          metalness={0.05}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      {/* Right panel (slides right when opening) */}
-      <mesh
+        <mesh>
+          <planeGeometry args={[panelWidth, panelHeight]} />
+          <meshStandardMaterial
+            ref={leftMatRef}
+            color="#cdd9e6"
+            transparent
+            opacity={CLOSED_OPACITY}
+            roughness={0.4}
+            metalness={0.05}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        {/* Door handle — a vertical chrome bar near the centre seam,
+            mounted slightly forward of the glass on the foyer side. */}
+        <mesh position={[panelWidth / 2 - 0.18, 0, 0.025]}>
+          <boxGeometry args={[0.04, panelHeight * 0.55, 0.04]} />
+          <meshStandardMaterial
+            color="#dddddd"
+            roughness={0.2}
+            metalness={0.85}
+          />
+        </mesh>
+      </group>
+
+      {/* Right door */}
+      <group
         ref={rightRef}
         position={[panelWidth / 2, DOORWAY_HEIGHT / 2, z]}
       >
-        <planeGeometry args={[panelWidth, panelHeight]} />
-        <meshStandardMaterial
-          ref={rightMatRef}
-          color="#cdd9e6"
-          transparent
-          opacity={CLOSED_OPACITY}
-          roughness={0.4}
-          metalness={0.05}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+        <mesh>
+          <planeGeometry args={[panelWidth, panelHeight]} />
+          <meshStandardMaterial
+            ref={rightMatRef}
+            color="#cdd9e6"
+            transparent
+            opacity={CLOSED_OPACITY}
+            roughness={0.4}
+            metalness={0.05}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        <mesh position={[-panelWidth / 2 + 0.18, 0, 0.025]}>
+          <boxGeometry args={[0.04, panelHeight * 0.55, 0.04]} />
+          <meshStandardMaterial
+            color="#dddddd"
+            roughness={0.2}
+            metalness={0.85}
+          />
+        </mesh>
+      </group>
       {/* Centre seam — a thin metallic strip where the two panels
           meet, so the closed pose reads as two distinct doors rather
           than a single frosted slab. The seam fades out alongside the
