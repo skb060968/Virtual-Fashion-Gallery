@@ -102,33 +102,15 @@ export function EntryOverlay() {
         className="pointer-events-none fixed inset-0 z-30 flex flex-col items-center justify-end gap-6 px-6 pb-12 sm:pb-16"
         data-vfg-entry-overlay={entryStage}
       >
-        <div className="pointer-events-auto flex max-w-md flex-col items-center gap-4 rounded-md border border-white/10 bg-black/55 px-6 py-5 text-center text-[var(--gallery-fg)] backdrop-blur-md">
+        <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-3 rounded-md border border-white/10 bg-black/55 px-5 py-4 text-center text-[var(--gallery-fg)] backdrop-blur-md">
           <p className="font-display text-xs uppercase tracking-[0.3em] text-[var(--gallery-muted)]">
             Welcome to the showroom
-          </p>
-          <h2 className="font-display text-2xl tracking-tight">
-            The doors are about to open
-          </h2>
-          <p className="font-body text-sm text-[var(--gallery-muted)]">
-            {coarse ? (
-              <>
-                Tap <strong>Step inside</strong> to open the doors. Drag
-                anywhere to look around, drag with two fingers to walk, or
-                use the joystick at the bottom-left.
-              </>
-            ) : (
-              <>
-                Press <strong>Step inside</strong> (or hit Enter) to open
-                the doors. Use <strong>W A S D</strong> or the arrow keys
-                to walk in, and your mouse to look around.
-              </>
-            )}
           </p>
           <button
             type="button"
             onClick={handleStepInside}
             disabled={entryStage !== "foyer"}
-            className={`mt-1 inline-flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-md bg-[var(--gallery-accent)] px-6 py-3 font-display text-sm font-medium uppercase tracking-[0.2em] text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING_CLASS}`}
+            className={`inline-flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-md bg-[var(--gallery-accent)] px-5 py-2.5 font-display text-sm font-medium uppercase tracking-[0.2em] text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING_CLASS}`}
             aria-label="Open the doors and step inside"
             data-vfg-entry-button=""
           >

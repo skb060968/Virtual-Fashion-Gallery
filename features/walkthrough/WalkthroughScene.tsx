@@ -52,7 +52,7 @@
  * no divergence between frame geometry and panel anchoring.
  */
 
-import { Text } from "@react-three/drei";
+import { Text3D } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -118,7 +118,7 @@ export const SPAWN = Object.freeze({
  * the on-screen "Step inside" button.
  */
 const FOYER_DEPTH = 9;
-const FOYER_WIDTH = 7; // narrow lobby corridor, slightly wider than the open doorway so the visitor walks straight in
+const FOYER_WIDTH = 11; // wide enough that the open door panels tuck behind the foyer side walls without clipping through them
 /** Width of the doorway cut into the south wall, in world units. */
 const DOORWAY_WIDTH = 5;
 /** Height of the doorway, in world units. Slightly less than ceiling height. */
@@ -494,29 +494,78 @@ function SpotLightForWall({ spec }: { spec: SpotLightSpec }) {
   // `placeFrames` parameters. The penumbra softens the cone edge so
   // the bloom pass does not pick up a hard cutoff line.
   return (
-    <spotLight
-      position={spec.position}
-      angle={Math.PI * 0.45}
-      penumbra={0.55}
-      decay={1.0}
-      distance={28}
-      intensity={5.5}
-      color="#fff5dd"
-      // Lights are computed real-time but do not cast shadows in v1: the
-      // matte gallery walls absorb most direct light, and disabling
-      // shadow maps keeps the per-frame draw-call budget low (Req 9.2,
-      // 9.3, 9.6). Shadowed lights remain a deferred performance lever.
-      castShadow={false}
-    >
-      <object3D
-        // R3F wires this child object into `spotLight.target` via the
-        // `attach` prop. World-space target position is supplied on
-        // the inner object — the spot's parent is the scene root, so
-        // the target's local frame is already world frame.
-        attach="target"
-        position={spec.target}
-      />
-    </spotLight>
+    <>
+      {/* Visible ceiling fixture sat where the spotlight lives — a
+          dark cylinder housing with a glowing disc inside so the
+          visitor can see "the bulb" producing each beam. */}
+      <CeilingFixture position={spec.position} />
+
+      <spotLight
+        position={spec.position}
+        angle={Math.PI * 0.45}
+        penumbra={0.55}
+        decay={1.0}
+        distance={28}
+        intensity={5.5}
+        color="#fff5dd"
+        // Lights are computed real-time but do not cast shadows in v1: the
+        // matte gallery walls absorb most direct light, and disabling
+        // shadow maps keeps the per-frame draw-call budget low (Req 9.2,
+        // 9.3, 9.6). Shadowed lights remain a deferred performance lever.
+        castShadow={false}
+      >
+        <object3D
+          // R3F wires this child object into `spotLight.target` via the
+          // `attach` prop. World-space target position is supplied on
+          // the inner object — the spot's parent is the scene root, so
+          // the target's local frame is already world frame.
+          attach="target"
+          position={spec.target}
+        />
+      </spotLight>
+    </>
+  );
+}
+
+/**
+ * CeilingFixture — a small recessed-can-light style mesh that sits
+ * at the same world coordinates as one of the gallery's spotlights.
+ * Two layers:
+ *   - An outer dark cylinder housing flush with the ceiling plane.
+ *   - An inner glowing disc that reads as "the bulb", picked up by
+ *     the bloom pass for a soft halo on the surface around it.
+ *
+ * The fixture is purely cosmetic (no light contribution); the actual
+ * `spotLight` sits a tiny offset below it.
+ */
+function CeilingFixture({ position }: { position: [number, number, number] }) {
+  // Sit the fixture on the ceiling. The spotlight itself stays at
+  // `position.y` (≈ 3.4) so its cone reaches the wall mid-line; the
+  // visible fixture is up against the ceiling at y = ROOM.height.
+  const [x, , z] = position;
+  const housingRadius = 0.18;
+  const housingHeight = 0.05;
+  const bulbRadius = 0.13;
+  return (
+    <group position={[x, ROOM.height - housingHeight / 2, z]}>
+      {/* Housing — a short cylinder, dark metallic. */}
+      <mesh>
+        <cylinderGeometry
+          args={[housingRadius, housingRadius, housingHeight, 16]}
+        />
+        <meshStandardMaterial
+          color="#0e0e10"
+          roughness={0.4}
+          metalness={0.7}
+        />
+      </mesh>
+      {/* Bulb — a small disc sitting just below the housing's
+          underside, glowing warm-white. */}
+      <mesh position={[0, -housingHeight / 2 - 0.001, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[bulbRadius, 24]} />
+        <meshBasicMaterial color="#fff2cc" toneMapped={false} />
+      </mesh>
+    </group>
   );
 }
 
@@ -614,20 +663,41 @@ function SouthWallWithDoorway() {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Boutique name rendered as 3D text floating just in front of
-          the backlit plaque. The text mesh's default forward is the
-          local +Z axis, which is what the foyer-side visitor sees, so
-          no Y-axis rotation is needed. */}
-      <Text
-        position={[0, marqueeY, z + 0.04]}
-        fontSize={Math.min(marqueeHeight * 0.62, 0.42)}
-        color="#0a0a0a"
-        anchorX="center"
-        anchorY="middle"
-        letterSpacing={0.18}
-      >
-        GP FASHION
-      </Text>
+      {/* Boutique name as 3D brass letters mounted on the marquee.
+          `Text3D` produces real geometry with depth so spotlights
+          and the bloom pass treat the letters as physical objects.
+          The parent group centres the text horizontally; vertical
+          centring is approximated by lifting the local origin to
+          half the cap height. */}
+      <group position={[0, marqueeY, z + 0.04]}>
+        <Text3D
+          font="/fonts/helvetiker_bold.typeface.json"
+          size={Math.min(marqueeHeight * 0.55, 0.36)}
+          height={0.04}
+          curveSegments={6}
+          bevelEnabled
+          bevelThickness={0.008}
+          bevelSize={0.006}
+          bevelOffset={0}
+          bevelSegments={3}
+          letterSpacing={0.05}
+          // The text geometry's origin is the lower-left of the first
+          // character. We translate it into the centre of the marquee
+          // by hand: roughly -3.0 horizontally for "GP FASHION" at
+          // size 0.36, and -0.13 vertically so it sits visually
+          // centred on the plate.
+          position={[-2.65, -0.18, 0]}
+        >
+          GP FASHION
+          <meshStandardMaterial
+            color="#d4a04a"
+            roughness={0.35}
+            metalness={0.85}
+            emissive="#3a2a0c"
+            emissiveIntensity={0.4}
+          />
+        </Text3D>
+      </group>
     </group>
   );
 }
@@ -858,12 +928,13 @@ function SlidingGlassDoors() {
   const rightMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const seamMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
 
-  // Doors stay fully opaque throughout the slide so they read as real
-  // physical panels disappearing into the side-wall pockets, the way
-  // a showroom sliding door actually behaves. Opacity stays pinned at
-  // 1.0 — the slide alone clears the doorway.
-  const CLOSED_OPACITY = 1.0;
-  const OPEN_OPACITY = 1.0;
+  // Closed-door opacity drops to 0.55 so the gallery interior shows
+  // through as a faint silhouette — a real translucent glass door
+  // rather than an opaque panel. Stays semi-transparent throughout
+  // the slide; the panels travel into the wall pockets so visibility
+  // doesn't depend on opacity changes.
+  const CLOSED_OPACITY = 0.55;
+  const OPEN_OPACITY = 0.55;
 
   useFrame((_, dt) => {
     const target = entryStage === "foyer" ? 0 : 1;
@@ -933,12 +1004,13 @@ function SlidingGlassDoors() {
           <planeGeometry args={[panelWidth, panelHeight]} />
           <meshStandardMaterial
             ref={leftMatRef}
-            color="#cdd9e6"
+            color="#e0eaf2"
             transparent
             opacity={CLOSED_OPACITY}
-            roughness={0.4}
-            metalness={0.05}
+            roughness={0.15}
+            metalness={0.1}
             side={THREE.DoubleSide}
+            depthWrite={false}
           />
         </mesh>
         {/* Door handle — a vertical chrome bar near the centre seam,
@@ -962,12 +1034,13 @@ function SlidingGlassDoors() {
           <planeGeometry args={[panelWidth, panelHeight]} />
           <meshStandardMaterial
             ref={rightMatRef}
-            color="#cdd9e6"
+            color="#e0eaf2"
             transparent
             opacity={CLOSED_OPACITY}
-            roughness={0.4}
-            metalness={0.05}
+            roughness={0.15}
+            metalness={0.1}
             side={THREE.DoubleSide}
+            depthWrite={false}
           />
         </mesh>
         <mesh position={[-panelWidth / 2 + 0.18, 0, 0.025]}>
