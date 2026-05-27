@@ -1,0 +1,12 @@
+{
+  "slug": "13dress",
+  "name": "Style 13",
+  "description": "",
+  "price": 699000,
+  "sizes": [
+    "S",
+    "M",
+    "L",
+    "XL"
+  ]
+}

@@ -1,0 +1,87 @@
+/**
+ * Global styles for the Virtual Fashion Design Gallery.
+ *
+ * - Tailwind 3 layer directives (Requirement 11.3).
+ * - Dark gallery palette + focus-ring tokens exposed as CSS variables
+ *   so the same values are available to Tailwind utilities (see
+ *   `tailwind.config.js`) and to raw CSS rules.
+ * - `data-fonts-fallback="true"` on `<html>` swaps the body and display
+ *   font stacks to system sans-serif when Google Fonts have not
+ *   resolved within 3s (Requirement 4.3, wired by `LandingClient`).
+ * - Visible focus indicator default for any element relying on
+ *   `:focus-visible` (Requirement 10.7).
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark gallery palette — neutral, low-chroma values chosen so the
+     3D scene's lighting and bloom dominate visually, while text on
+     2D surfaces stays high-contrast against the background. */
+  --gallery-bg: #0a0a0b;
+  --gallery-surface: #14141a;
+  --gallery-fg: #f5f5f4;
+  --gallery-muted: #a1a1aa;
+  --gallery-accent: #fde68a; /* warm amber, matches focus ring */
+
+  /* Focus-ring tokens (Req 10.7). Mirror the global Tailwind utility
+     `focus-visible:ring-2 focus-visible:ring-amber-200/80
+     focus-visible:ring-offset-2 focus-visible:ring-offset-black`. */
+  --focus-ring-color: rgb(253 230 138 / 0.8); /* amber-200 @ 80% */
+  --focus-ring-offset: #000000;
+  --focus-ring-width: 2px;
+  --focus-ring-offset-width: 2px;
+
+  /* Font stacks. The Google-Fonts-loaded faces are injected by
+     `next/font/google` in `app/layout.tsx` and resolved through
+     `--font-display` / `--font-body`. The fallback chain below is
+     used both before fonts load and when the 3s watchdog trips. */
+  --font-system-sans: ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: var(--font-system-sans);
+  --font-body: var(--font-system-sans);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--gallery-bg);
+    color: var(--gallery-fg);
+    font-family: var(--font-body);
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* drei `<Html transform>` wrapper used by `<MetadataPanel/>`. The
+     `wrapperClass` is rendered as a positioned overlay; constrain it
+     to a small fixed footprint so DOM measurement during mount does
+     not transiently push panel text into the page flow. */
+  .vfg-metadata-panel-wrapper {
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  /* Font fallback (Req 4.3): when `LandingClient` sets
+     `data-fonts-fallback="true"` on `<html>`, swap both display and
+     body stacks to the system sans-serif chain. */
+  html[data-fonts-fallback="true"] {
+    --font-display: var(--font-system-sans);
+    --font-body: var(--font-system-sans);
+  }
+
+  /* Visible focus indicator (Req 10.7). Applied to any focusable
+     element that does not already opt into a custom ring. */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset-width);
+  }
+}
