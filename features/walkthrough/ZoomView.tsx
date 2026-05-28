@@ -575,10 +575,6 @@ function ZoomViewOverlay({
             >
               Contact the designer
             </a>
-            <p className="mt-2 text-xs text-gallery-muted">
-              Tip: press Escape, tap Close, or swipe down to return to the
-              gallery.
-            </p>
           </motion.section>
         </div>
       </ProtectedSurface>

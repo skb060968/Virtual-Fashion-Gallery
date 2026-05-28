@@ -251,11 +251,10 @@ export function LandingClient() {
             GP Fashion · Portfolio Gallery
           </p>
           <h1 className="font-display text-4xl font-medium leading-tight text-[var(--gallery-fg)] sm:text-5xl md:text-6xl">
-            The work of <span className="text-[var(--gallery-accent)]">Piyush Bholla</span>
+            <span className="text-[var(--gallery-accent)]">Piyush Bholla</span>
           </h1>
           <p className="max-w-xl font-body text-base text-[var(--gallery-muted)] sm:text-lg">
-            A walkable exhibition of the GP Fashion collection — every piece
-            framed and lit like a quiet downtown gallery.
+            A walkable exhibition of the GP Fashion collection.
           </p>
         </header>
 
