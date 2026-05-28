@@ -699,24 +699,18 @@ function SouthWallWithDoorway() {
 }
 
 /**
- * FoyerChamber — the high-street sidewalk in front of the boutique
- * facade. Visitors land on the sidewalk side of the showroom doors
- * and see the storefront across the foyer space. Stepping inside
- * walks them off the street and into the gallery.
+ * FoyerChamber — the warm indoor lobby in front of the boutique
+ * facade. Visitors land in a corridor-width vestibule with sandy
+ * walls, a walnut floor, and warm overhead lighting that picks up
+ * the polished marquee on the far wall. Stepping inside walks them
+ * through the sliding glass doors into the gallery proper.
  *
  * Visual scheme:
- *   - "Sidewalk": dark stone floor with a slightly lighter inset
- *     near the storefront to suggest a stone threshold step.
- *   - "Sky": near-black ceiling so the foyer reads as outdoors at
- *     night. A scattering of warm point lights at street-lamp height
- *     gives the scene the feel of a lit avenue.
- *   - "Street side walls": dark stone with a row of softly glowing
- *     window rectangles (the windows of the buildings on either side
- *     of the street).
- *   - "Buildings across the street": the foyer's back wall is dressed
- *     up as a row of taller dark facades with their own warm window
- *     rectangles, so the visitor's first view from the sidewalk is
- *     the boutique on one side and a familiar streetscape on the other.
+ *   - "Floor": warm walnut.
+ *   - "Ceiling": warm off-white.
+ *   - "Side walls": sandy beige so the lobby feels open and bright.
+ *   - "Back wall": deeper warm-amber accent so the eye is drawn
+ *     forward toward the boutique entrance rather than the rear.
  */
 function FoyerChamber() {
   const z0 = ROOM.depth / 2; // back of foyer (gallery side, the boutique facade)
@@ -726,111 +720,95 @@ function FoyerChamber() {
 
   return (
     <group data-vfg-room="foyer">
-      {/* Sidewalk — dark stone the visitor stands on. */}
+      {/* Lobby floor — warm walnut. */}
       <mesh
         position={[0, 0, (z0 + z1) / 2]}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
       >
         <planeGeometry args={[FOYER_WIDTH, FOYER_DEPTH]} />
-        <meshStandardMaterial color="#262629" roughness={0.85} metalness={0} />
+        <meshStandardMaterial color="#7a5a3c" roughness={0.7} metalness={0} />
       </mesh>
 
-      {/* Threshold step — a narrow strip of paler stone right in
-          front of the boutique doors, so the visitor instinctively
-          reads the boundary between sidewalk and showroom. */}
-      <mesh
-        position={[0, 0.005, z0 + 1.0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[DOORWAY_WIDTH + 1.5, 1.6]} />
-        <meshStandardMaterial color="#3a3a40" roughness={0.7} metalness={0} />
-      </mesh>
-
-      {/* "Night sky" ceiling — near-black, so the foyer reads as
-          open-air rather than a sealed vestibule. */}
+      {/* Lobby ceiling — warm off-white so the foyer reads as a
+          well-lit indoor vestibule rather than open night sky. */}
       <mesh
         position={[0, ROOM.height, (z0 + z1) / 2]}
         rotation={[Math.PI / 2, 0, 0]}
         receiveShadow
       >
         <planeGeometry args={[FOYER_WIDTH, FOYER_DEPTH]} />
-        <meshStandardMaterial color="#0a0a0e" roughness={0.95} metalness={0} />
+        <meshStandardMaterial color="#ece2cf" roughness={0.95} metalness={0} />
       </mesh>
 
-      {/* West side wall — neighbouring shopfront seen edge-on. */}
+      {/* Lobby west wall — sandy beige. */}
       <mesh
         position={[-halfFoyerW, wallY, (z0 + z1) / 2]}
         rotation={[0, Math.PI / 2, 0]}
       >
         <planeGeometry args={[FOYER_DEPTH, ROOM.height]} />
         <meshStandardMaterial
-          color="#1a1a1f"
-          roughness={0.92}
+          color="#d6c7ad"
+          roughness={0.9}
           metalness={0}
           side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* East side wall — neighbouring shopfront seen edge-on. */}
+      {/* Lobby east wall — sandy beige. */}
       <mesh
         position={[halfFoyerW, wallY, (z0 + z1) / 2]}
         rotation={[0, -Math.PI / 2, 0]}
       >
         <planeGeometry args={[FOYER_DEPTH, ROOM.height]} />
         <meshStandardMaterial
-          color="#1a1a1f"
-          roughness={0.92}
+          color="#d6c7ad"
+          roughness={0.9}
           metalness={0}
           side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* "Across the street" — the foyer's back wall is a row of
-          dark building facades. */}
+      {/* Lobby back wall — a deeper warm-amber accent so the eye is
+          drawn forward toward the gallery doors rather than the
+          rear of the foyer. */}
       <mesh
         position={[0, wallY, z1]}
         rotation={[0, 0, 0]}
       >
         <planeGeometry args={[FOYER_WIDTH, ROOM.height]} />
         <meshStandardMaterial
-          color="#14141a"
-          roughness={0.95}
+          color="#a37a4b"
+          roughness={0.9}
           metalness={0}
           side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Glowing windows along the back-wall facades. Three rows of
-          small rectangles, evenly spaced, give the impression of
-          residential floors above retail. */}
-      <BackdropWindows wallZ={z1 - 0.02} wallWidth={FOYER_WIDTH} />
-
-      {/* Street-lamp glow — a warm amber point light at lamp-post
-          height in the centre of the foyer, plus subtler fills at the
-          left and right sides. Total = 3 point lights, well under the
-          Req 9.4 budget of 8. */}
+      {/* Lobby fill light — warm amber point light suspended at
+          mid-room height, intensity tuned low and `distance` capped
+          so its falloff dies before it can leak through the doorway
+          and bleach the gallery ceiling. */}
       <pointLight
-        position={[0, ROOM.height - 0.4, z0 + FOYER_DEPTH / 2]}
-        intensity={1.2}
-        distance={FOYER_DEPTH * 1.6}
+        position={[0, 2.4, z0 + FOYER_DEPTH / 2]}
+        intensity={0.9}
+        distance={6}
+        decay={2}
+        color="#ffe1ad"
+      />
+      <pointLight
+        position={[-halfFoyerW + 1.0, 2.2, z0 + FOYER_DEPTH * 0.7]}
+        intensity={0.5}
+        distance={4}
         decay={2}
         color="#ffd9a3"
       />
       <pointLight
-        position={[-halfFoyerW + 1.5, 2.6, z0 + FOYER_DEPTH * 0.7]}
-        intensity={0.7}
-        distance={6}
+        position={[halfFoyerW - 1.0, 2.2, z0 + FOYER_DEPTH * 0.7]}
+        intensity={0.5}
+        distance={4}
         decay={2}
-        color="#ffc98a"
-      />
-      <pointLight
-        position={[halfFoyerW - 1.5, 2.6, z0 + FOYER_DEPTH * 0.7]}
-        intensity={0.7}
-        distance={6}
-        decay={2}
-        color="#ffc98a"
+        color="#ffd9a3"
       />
 
       {/* Sliding glass doors filling the doorway. */}
@@ -840,11 +818,11 @@ function FoyerChamber() {
 }
 
 /**
- * BackdropWindows — a procedurally-laid grid of warm window
- * rectangles painted onto the foyer's back wall to suggest the
- * buildings across the street. Two rows × N columns; alternating
- * brightness so the row reads as a lit-up avenue rather than a single
- * uniform glow.
+ * BackdropWindows — retained but no longer mounted. Originally drew
+ * "buildings across the street" rectangles on the foyer's back wall
+ * for an outdoor-night look; the foyer was later rethemed as a warm
+ * indoor lobby that doesn't need them. Kept in source so it can be
+ * re-enabled if the outdoor variant is ever revisited.
  */
 function BackdropWindows({
   wallZ,
@@ -858,8 +836,6 @@ function BackdropWindows({
   const winW = 0.7;
   const winH = 0.55;
   const colSpacing = wallWidth / (cols + 1);
-  // Place windows on the upper half of the wall so they read as
-  // residential floors above ground-floor retail.
   const yTop = ROOM.height - 0.5;
   const yMid = ROOM.height - 1.4;
   const ys = rows === 2 ? [yTop, yMid] : [yTop];
@@ -868,8 +844,6 @@ function BackdropWindows({
   for (let r = 0; r < ys.length; r++) {
     for (let c = 0; c < cols; c++) {
       const x = -wallWidth / 2 + colSpacing * (c + 1);
-      // Pseudo-random bright/dim mix so the wall doesn't look like
-      // a stamped pattern.
       const bright = (c * 3 + r * 5) % 4 !== 0;
       rects.push({ x, y: ys[r], bright });
     }
