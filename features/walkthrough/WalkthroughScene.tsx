@@ -985,6 +985,15 @@ function FoyerLogo({
   maxWidth: number;
 }) {
   const texture = useTexture("/images/hero/logo.png");
+  // Modern three.js expects color textures tagged with sRGB so the
+  // shader pipeline does the right linear → sRGB conversion. Without
+  // this the logo can render as nearly black against the warm wall
+  // when the renderer is in an sRGB output mode.
+  useEffect(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+  }, [texture]);
+
   const [width, height] = useMemo(() => {
     const img = texture.image as
       | { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number }
@@ -1006,7 +1015,18 @@ function FoyerLogo({
   return (
     <mesh position={position} data-vfg-foyer-logo="">
       <planeGeometry args={[width, height]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+      {/* `side: DoubleSide` so the logo is visible whether the
+          visitor is facing the back wall (looking +z) or sees it
+          through the gallery doorway from the foyer chamber's far
+          end. Default plane geometry only renders +Z normal; the
+          back wall sits behind the spawn point so the visitor's
+          natural turn-around viewing direction is +z. */}
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        toneMapped={false}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   );
 }
