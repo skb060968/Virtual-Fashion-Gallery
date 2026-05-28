@@ -95,13 +95,15 @@ export const ROOM: RoomDimensions = {
  *
  * The Visitor enters the foyer chamber attached to the gallery's south
  * wall (which sits at +z) and faces the gallery doorway. The spawn
- * sits 3m back from the doorway plane (z=9) so the visitor can already
- * see the GP Fashion sign and the closed glass doors clearly without
- * having to walk forward through a long foyer first.
+ * sits 5m back from the doorway plane (z=9), giving a clear sightline
+ * to the entire boutique facade — the GP FASHION signboard above the
+ * doorway, the brass-bordered marquee, and the closed glass doors all
+ * fit in the visitor's initial field of view without needing to look
+ * up or step backward.
  *
  * In three.js the default camera looks down −z, so `yaw = 0` keeps the
  * forward vector pointing toward −z — which from a foyer position at
- * `z = 12` aims through the doorway at `z = +9` and on into the
+ * `z = 14` aims through the doorway at `z = +9` and on into the
  * gallery proper. Pitch = 0 keeps the camera level. Eye height of
  * 1.6m is a standing-adult default and matches the mid-wall frame
  * anchor at `room.height / 2`.
@@ -111,7 +113,7 @@ export const ROOM: RoomDimensions = {
  * able to mutate it.
  */
 export const SPAWN = Object.freeze({
-  position: [0, 1.6, 12] as const,
+  position: [0, 1.6, 14] as const,
   yaw: 0,
   pitch: 0,
 });
@@ -842,8 +844,8 @@ function DesignerPlaque({ wallPose }: { wallPose: WallPose }) {
   const yaw = useMemo(() => Math.atan2(wallPose.normal[0], wallPose.normal[2]), [
     wallPose.normal,
   ]);
-  const plaqueWidth = 1.2;
-  const plaqueHeight = 0.26;
+  const plaqueWidth = 1.4;
+  const plaqueHeight = 0.28;
   const plaqueDepth = 0.04;
   // Sit the plaque above the frame: the frame is 1.4m tall centred on
   // the wall pose, so its top edge is +0.7. We add a small gap and
