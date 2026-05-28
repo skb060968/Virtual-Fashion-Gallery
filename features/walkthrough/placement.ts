@@ -90,11 +90,16 @@ type Wall = {
  *   3. North wall (z = −depth/2; frames face +z).
  *   4. East wall  (x = +width/2; frames face −x).
  *
- * Each wall is filled left-to-right (along the walk direction) with frames
- * spaced `frameWidth + interFrameGap` apart, keeping `cornerMargin` clear of
- * each corner. When a wall is full, placement wraps to the next wall in the
- * sequence above. If the catalogue cannot fit on the four walls under the
- * current configuration, the function throws an `Error` whose message names
+ * Each wall is filled left-to-right (along the walk direction) with
+ * frames spaced evenly between the corner margins — the first and last
+ * frame centres sit `cornerMargin + frameWidth/2` from each end of the
+ * wall, and any remaining inner space is divided equally between the
+ * frames so neighbouring gaps are uniform along the wall. Capacity is
+ * still bounded by the minimum stride `frameWidth + interFrameGap`, so
+ * frames never visually overlap (Requirement 2.1). When a wall is full,
+ * placement wraps to the next wall in the sequence above. If the
+ * catalogue cannot fit on the four walls under the current
+ * configuration, the function throws an `Error` whose message names
  * the offending count and the room dimensions.
  *
  * @returns one `WallPose` per record, in catalogue order.
@@ -182,13 +187,24 @@ export function placeFrames(
     const usable = wall.length - 2 * cornerMargin;
     if (usable < frameWidth) continue; // wall is too short for any frame
 
-    const stride = frameWidth + interFrameGap;
     // Capacity = how many frames fit while keeping the last frame's outer
     // edge clear of the far-corner margin. Solving
     //   cornerMargin + N*frameWidth + (N-1)*interFrameGap <= length-cornerMargin
     // for N gives N <= (usable - frameWidth) / stride + 1.
-    const capacity = Math.floor((usable - frameWidth) / stride + 1e-9) + 1;
+    const minStride = frameWidth + interFrameGap;
+    const capacity =
+      Math.floor((usable - frameWidth) / minStride + 1e-9) + 1;
     const fitsHere = Math.min(capacity, records.length - recordIndex);
+
+    // Distribute the `fitsHere` frames evenly along the usable wall
+    // length. The frame centres are equally spaced, with the first
+    // and last centres positioned cornerMargin + frameWidth/2 from
+    // each end of the wall — so the gaps between neighbouring frames
+    // are uniform regardless of how much wall length is left over
+    // after a fixed-stride packing. When `fitsHere === 1` we centre
+    // the single frame on the wall.
+    const span = usable - frameWidth; // distance the centre of the last frame travels
+    const stride = fitsHere > 1 ? span / (fitsHere - 1) : 0;
 
     for (let i = 0; i < fitsHere; i++) {
       const offset = cornerMargin + frameWidth / 2 + i * stride;

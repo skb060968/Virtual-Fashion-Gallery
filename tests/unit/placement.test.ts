@@ -63,13 +63,20 @@ describe("placeFrames", () => {
       frameWidth: 1.4,
       interFrameGap: 0.6,
     });
-    // All four frames land on the south wall; centers progress along +x with
-    // stride = frameWidth + interFrameGap = 2.0.
+    // All four frames land on the south wall. Frames are now spaced
+    // evenly between the corner margins instead of at a fixed stride,
+    // so the centre-to-centre distance is uniform but generally
+    // exceeds the minimum stride (frameWidth + interFrameGap = 2.0).
+    // For 4 frames on the 12m south wall with cornerMargin=0.5,
+    // usable=11, span=11-1.4=9.6, stride=9.6/3=3.2m.
     const xs = poses.map((p) => p.position[0]);
+    const expectedStride = (12 - 2 * 0.5 - 1.4) / (4 - 1);
     for (let i = 1; i < xs.length; i++) {
       const dx = xs[i] - xs[i - 1];
-      expect(dx).toBeGreaterThanOrEqual(1.4 - 1e-9);
-      expect(dx).toBeCloseTo(2.0, 9);
+      // Must respect non-overlap (>= frameWidth + interFrameGap).
+      expect(dx).toBeGreaterThanOrEqual(1.4 + 0.6 - 1e-9);
+      // And must be uniform across the wall.
+      expect(dx).toBeCloseTo(expectedStride, 9);
     }
   });
 

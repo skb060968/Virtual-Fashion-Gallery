@@ -842,15 +842,15 @@ function DesignerPlaque({ wallPose }: { wallPose: WallPose }) {
   const yaw = useMemo(() => Math.atan2(wallPose.normal[0], wallPose.normal[2]), [
     wallPose.normal,
   ]);
-  const plaqueWidth = 1.1;
-  const plaqueHeight = 0.22;
+  const plaqueWidth = 1.2;
+  const plaqueHeight = 0.26;
   const plaqueDepth = 0.04;
   // Sit the plaque above the frame: the frame is 1.4m tall centred on
   // the wall pose, so its top edge is +0.7. We add a small gap and
   // half the plaque height so the plaque's bottom edge sits 0.04m
   // above the frame's top.
   const yOffset = 0.7 + plaqueHeight / 2 + 0.04;
-  const borderThickness = 0.018;
+  const borderThickness = 0.02;
   const borderDepth = 0.012;
 
   return (
@@ -914,25 +914,25 @@ function DesignerPlaque({ wallPose }: { wallPose: WallPose }) {
         );
       })()}
 
-      {/* "ABOUT THE DESIGNER" — extruded brass letters centred on the
-          plaque face. `<Center>` measures the resulting bounding box
-          and offsets the geometry so the parent group's origin sits
-          at the centre of the text. */}
+      {/* "DESIGNER" — extruded brass letters centred on the plaque
+          face. `<Center>` measures the resulting bounding box and
+          offsets the geometry so the parent group's origin sits at
+          the centre of the text. */}
       <group position={[0, 0, plaqueDepth / 2 + 0.014]}>
         <Center>
           <Text3D
             font="/fonts/helvetiker_bold.typeface.json"
-            size={0.1}
-            height={0.018}
+            size={0.13}
+            height={0.022}
             curveSegments={6}
             bevelEnabled
-            bevelThickness={0.004}
-            bevelSize={0.003}
+            bevelThickness={0.005}
+            bevelSize={0.004}
             bevelOffset={0}
             bevelSegments={2}
-            letterSpacing={0.04}
+            letterSpacing={0.05}
           >
-            ABOUT THE DESIGNER
+            DESIGNER
             <meshPhysicalMaterial
               color="#d4a04a"
               roughness={0.3}
