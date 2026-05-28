@@ -77,13 +77,47 @@ type FieldErrors = Partial<
   Record<"name" | "email" | "message" | "_root", string>
 >;
 
-const FIELD_BASE_CLASS =
+/**
+ * `theme` selects the form's surface palette. The default `"dark"`
+ * matches the gallery shell (used when the form appears as an embed
+ * over the dark Walkthrough_Engine UI). `"light"` mirrors the GP
+ * Fashion contact page palette and is used by the standalone
+ * `/contact` route — light inputs on a white card, with stone-coloured
+ * helper text instead of the muted gallery tones.
+ */
+export type ContactFormTheme = "dark" | "light";
+
+const FIELD_BASE_DARK =
   "w-full rounded-md border border-white/10 bg-[var(--gallery-surface)] px-3 py-2 text-[var(--gallery-fg)] placeholder:text-[var(--gallery-muted)] disabled:opacity-60";
+const FIELD_BASE_LIGHT =
+  "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900 placeholder:text-stone-400 disabled:opacity-60";
 
-const SUBMIT_BASE_CLASS =
+const SUBMIT_BASE_DARK =
   "inline-flex items-center justify-center rounded-md bg-[var(--gallery-accent)] px-4 py-2 font-medium text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
+const SUBMIT_BASE_LIGHT =
+  "inline-flex items-center justify-center rounded-md bg-amber-500 px-4 py-2 font-medium text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60";
 
-export function ContactForm() {
+const COUNT_TEXT_DARK = "text-xs text-[var(--gallery-muted)]";
+const COUNT_TEXT_LIGHT = "text-xs text-stone-500";
+
+const ERROR_TEXT_DARK = "text-red-300";
+const ERROR_TEXT_LIGHT = "text-red-600";
+
+const SUCCESS_TEXT_DARK = "text-emerald-300";
+const SUCCESS_TEXT_LIGHT = "text-emerald-700";
+
+export type ContactFormProps = {
+  /** Surface palette. Defaults to `"dark"`. */
+  theme?: ContactFormTheme;
+};
+
+export function ContactForm({ theme = "dark" }: ContactFormProps = {}) {
+  const isLight = theme === "light";
+  const fieldBase = isLight ? FIELD_BASE_LIGHT : FIELD_BASE_DARK;
+  const submitBase = isLight ? SUBMIT_BASE_LIGHT : SUBMIT_BASE_DARK;
+  const countText = isLight ? COUNT_TEXT_LIGHT : COUNT_TEXT_DARK;
+  const errorText = isLight ? ERROR_TEXT_LIGHT : ERROR_TEXT_DARK;
+  const successText = isLight ? SUCCESS_TEXT_LIGHT : SUCCESS_TEXT_DARK;
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [message, setMessage] = useState<string>("");
@@ -222,7 +256,7 @@ export function ContactForm() {
           </label>
           <span
             id={nameCountId}
-            className="text-xs text-[var(--gallery-muted)]"
+            className={countText}
             aria-live="polite"
           >
             {name.length}/{CONTACT_BOUNDS.name.max}
@@ -240,10 +274,10 @@ export function ContactForm() {
           disabled={submitting}
           aria-invalid={fieldErrors.name ? "true" : "false"}
           aria-describedby={`${nameCountId}${fieldErrors.name ? ` ${nameErrorId}` : ""}`}
-          className={`${FIELD_BASE_CLASS} ${FOCUS_RING_CLASS}`}
+          className={`${fieldBase} ${FOCUS_RING_CLASS}`}
         />
         {fieldErrors.name ? (
-          <p id={nameErrorId} className="text-xs text-red-300">
+          <p id={nameErrorId} className={`text-xs ${errorText}`}>
             {fieldErrors.name}
           </p>
         ) : null}
@@ -257,7 +291,7 @@ export function ContactForm() {
           </label>
           <span
             id={emailCountId}
-            className="text-xs text-[var(--gallery-muted)]"
+            className={countText}
             aria-live="polite"
           >
             {email.length}/{CONTACT_BOUNDS.email.max}
@@ -275,10 +309,10 @@ export function ContactForm() {
           disabled={submitting}
           aria-invalid={fieldErrors.email ? "true" : "false"}
           aria-describedby={`${emailCountId}${fieldErrors.email ? ` ${emailErrorId}` : ""}`}
-          className={`${FIELD_BASE_CLASS} ${FOCUS_RING_CLASS}`}
+          className={`${fieldBase} ${FOCUS_RING_CLASS}`}
         />
         {fieldErrors.email ? (
-          <p id={emailErrorId} className="text-xs text-red-300">
+          <p id={emailErrorId} className={`text-xs ${errorText}`}>
             {fieldErrors.email}
           </p>
         ) : null}
@@ -292,7 +326,7 @@ export function ContactForm() {
           </label>
           <span
             id={messageCountId}
-            className="text-xs text-[var(--gallery-muted)]"
+            className={countText}
             aria-live="polite"
           >
             {message.length}/{CONTACT_BOUNDS.message.max}
@@ -308,10 +342,10 @@ export function ContactForm() {
           disabled={submitting}
           aria-invalid={fieldErrors.message ? "true" : "false"}
           aria-describedby={`${messageCountId}${fieldErrors.message ? ` ${messageErrorId}` : ""}`}
-          className={`${FIELD_BASE_CLASS} resize-y ${FOCUS_RING_CLASS}`}
+          className={`${fieldBase} resize-y ${FOCUS_RING_CLASS}`}
         />
         {fieldErrors.message ? (
-          <p id={messageErrorId} className="text-xs text-red-300">
+          <p id={messageErrorId} className={`text-xs ${errorText}`}>
             {fieldErrors.message}
           </p>
         ) : null}
@@ -321,7 +355,7 @@ export function ContactForm() {
         <button
           type="submit"
           disabled={submitting}
-          className={`${SUBMIT_BASE_CLASS} ${FOCUS_RING_CLASS}`}
+          className={`${submitBase} ${FOCUS_RING_CLASS}`}
         >
           {submitting ? "Sending…" : "Send message"}
         </button>
@@ -341,12 +375,12 @@ export function ContactForm() {
         className="min-h-[1.5rem] text-sm"
       >
         {showErrorRegion ? (
-          <p className="text-red-300">
+          <p className={errorText}>
             {status.kind === "error" ? status.message : rootError}
           </p>
         ) : null}
         {showSuccessRegion ? (
-          <p className="text-emerald-300">Thanks — your message was sent.</p>
+          <p className={successText}>Thanks — your message was sent.</p>
         ) : null}
       </div>
     </form>

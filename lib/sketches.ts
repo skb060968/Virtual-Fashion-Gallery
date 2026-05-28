@@ -30,6 +30,21 @@
 import { assertSketchCatalog, type SketchRecord } from "./sketch-record";
 
 export const sketches: ReadonlyArray<SketchRecord> = [
+  // Designer portrait — sits first in catalogue order so the placement
+  // walk anchors it at the start of the west wall, the first artwork
+  // the visitor encounters on their right after stepping through the
+  // sliding doors. Click → Zoom_View shows the designer's photograph
+  // alongside the same metadata layout as a dress (the zoom panel
+  // already renders `title`, `medium`, and `description`).
+  {
+    id: "designer",
+    title: "Piyush Bholla",
+    date: "2024-01-01",
+    medium: "Founder & Creative Director, GP Fashion",
+    description:
+      "An Indian fashion designer working across kidswear, menswear, and womenswear from a Delhi studio. Trained at NIFT Bengaluru and FIT New York, with a practice grounded in detail, craftsmanship, and the quiet pleasure of well-made clothes. Each collection is a balancing act between tradition and innovation, polish and playfulness — clothes that feel authentic, elegant, and joyful to wear. Philosophy: authenticity woven into every detail.",
+    imageSrc: "/images/about/piyush1.jpg",
+  },
   {
     id: "1dress",
     title: "Style 01",
