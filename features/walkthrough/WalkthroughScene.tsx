@@ -433,10 +433,10 @@ export function WalkthroughScene() {
           that wall is lit from the visitor's side, satisfying Req 2.3.
           ---------------------------------------------------------------- */}
 
-      <ambientLight intensity={0.7} />
+      <ambientLight intensity={0.85} />
 
       <hemisphereLight
-        args={["#fff8e7", "#3a3a45", 0.9]}
+        args={["#fff8e7", "#3a3a45", 1.0]}
       />
 
       {SPOT_LIGHT_SPECS.map((spec) => (
@@ -503,11 +503,11 @@ function SpotLightForWall({ spec }: { spec: SpotLightSpec }) {
 
       <spotLight
         position={spec.position}
-        angle={Math.PI * 0.18}
-        penumbra={0.5}
+        angle={Math.PI * 0.12}
+        penumbra={0.6}
         decay={1.0}
         distance={28}
-        intensity={11}
+        intensity={6}
         color="#fff5dd"
         // Lights are computed real-time but do not cast shadows in v1: the
         // matte gallery walls absorb most direct light, and disabling
@@ -787,17 +787,11 @@ function FoyerChamber() {
         />
       </mesh>
 
-      {/* Lobby fill light — warm amber point light suspended just
-          below the ceiling. The gallery's spotlight cones are narrow
-          enough that this fixture's glow doesn't bleed through the
-          doorway and create a visible pool on the gallery ceiling. */}
-      <pointLight
-        position={[0, ROOM.height - 0.4, z0 + FOYER_DEPTH / 2]}
-        intensity={1.2}
-        distance={FOYER_DEPTH * 1.6}
-        decay={2}
-        color="#ffd9a3"
-      />
+      {/* Lobby fill light — two warm amber wall-washers tucked toward
+          the side walls. The ceiling-centre fixture was removed because
+          it produced a bright hot-spot on the foyer roof; the side
+          lamps already provide the warm vestibule glow without a
+          visible point-source on the ceiling. */}
       <pointLight
         position={[-halfFoyerW + 1.5, 2.6, z0 + FOYER_DEPTH * 0.7]}
         intensity={0.7}

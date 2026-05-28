@@ -243,15 +243,14 @@ export function SketchFrame({
   const openZoomForRecord = useCallback(() => {
     const state = useGalleryStore.getState();
     if (state.zoomOpen) return;
-    // Activation gate (Req 3.3 + foyer entry sequence): only open the
-    // Zoom_View once the visitor has walked into the gallery (entry
-    // stage "inside") AND is close enough to this specific frame for
-    // the proximity highlighter to have marked it focused (within
-    // 1.5m, Req 2.5 / 2.6). This prevents a click on a frame that is
-    // visible through the still-closed glass doors from popping the
-    // zoom overlay over the foyer entry sequence.
+    // Activation gate: the visitor must have walked into the gallery
+    // (entry stage "inside") before any frame becomes clickable. While
+    // they're still in the foyer with the doors closed and the entry
+    // overlay up, clicks on visible frames are ignored. Once inside,
+    // any frame can be clicked — no per-frame proximity check, since
+    // the wall-clearance keeps the camera too far from a frame for a
+    // tight 1.5m gate to feel reliable in practice.
     if (state.entryStage !== "inside") return;
-    if (state.focusedFrameId !== record.id) return;
     state.openZoom(record.id, captureSnapshot());
   }, [record.id, captureSnapshot]);
 
@@ -333,15 +332,13 @@ export function SketchFrame({
           keeps the mesh raycastable while invisible — the default raycaster
           skips objects whose `visible` is `false`.
 
-          The pointer cursor is only set to "pointer" while this frame is
-          the proximity-focused one inside the gallery, so far frames /
-          frames seen through the still-closed foyer doors don't advertise
-          themselves as clickable when `openZoomForRecord` would no-op. */}
+          The pointer cursor switches to "pointer" only after the visitor
+          has entered the gallery, so frames seen through the still-closed
+          foyer doors don't advertise themselves as clickable. */}
       <mesh
         position={[0, 0, COLLIDER_DEPTH_OFFSET]}
         onClick={handleColliderSelect}
         onPointerOver={(event) => {
-          if (!isFocused) return;
           if (useGalleryStore.getState().entryStage !== "inside") return;
           event.stopPropagation();
           if (typeof document !== "undefined") {
