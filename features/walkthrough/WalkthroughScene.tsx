@@ -349,7 +349,10 @@ export function WalkthroughScene() {
           the visual focus.
           ---------------------------------------------------------------- */}
 
-      {/* Floor */}
+      {/* Floor — warm oak parquet. A subtle clearcoat layer picks up
+          a soft sheen off the bulb fixtures so the floor reads as
+          polished hardwood rather than matte cardboard, but a high
+          base roughness keeps it from going mirror-shiny. */}
       <mesh
         position={[0, 0, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -357,10 +360,20 @@ export function WalkthroughScene() {
         data-vfg-room="floor"
       >
         <planeGeometry args={[ROOM.width, ROOM.depth]} />
-        <meshStandardMaterial color="#c9b896" roughness={0.7} metalness={0} />
+        <meshPhysicalMaterial
+          color="#9a7c52"
+          roughness={0.55}
+          metalness={0}
+          clearcoat={0.45}
+          clearcoatRoughness={0.35}
+          sheen={0.2}
+          sheenColor="#5a3e1c"
+        />
       </mesh>
 
-      {/* Ceiling */}
+      {/* Ceiling — soft warm off-white. Low metalness + high roughness
+          so it reads as painted plaster, with a mild sheen so the
+          fixture bulbs cast a believable diffuse halo around them. */}
       <mesh
         position={[0, ROOM.height, 0]}
         rotation={[Math.PI / 2, 0, 0]}
@@ -368,7 +381,13 @@ export function WalkthroughScene() {
         data-vfg-room="ceiling"
       >
         <planeGeometry args={[ROOM.width, ROOM.depth]} />
-        <meshStandardMaterial color="#e8e0cf" roughness={0.95} metalness={0} />
+        <meshPhysicalMaterial
+          color="#f1e8d4"
+          roughness={0.85}
+          metalness={0}
+          sheen={0.15}
+          sheenColor="#fff5dd"
+        />
       </mesh>
 
       {/* South wall — split into a left panel, a right panel, and a
@@ -389,10 +408,12 @@ export function WalkthroughScene() {
         data-vfg-room="wall-north"
       >
         <planeGeometry args={[ROOM.width, ROOM.height]} />
-        <meshStandardMaterial
-          color="#ece2cf"
-          roughness={0.92}
+        <meshPhysicalMaterial
+          color="#f0e6d2"
+          roughness={0.78}
           metalness={0}
+          clearcoat={0.15}
+          clearcoatRoughness={0.6}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -405,10 +426,12 @@ export function WalkthroughScene() {
         data-vfg-room="wall-west"
       >
         <planeGeometry args={[ROOM.depth, ROOM.height]} />
-        <meshStandardMaterial
-          color="#ece2cf"
-          roughness={0.92}
+        <meshPhysicalMaterial
+          color="#f0e6d2"
+          roughness={0.78}
           metalness={0}
+          clearcoat={0.15}
+          clearcoatRoughness={0.6}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -421,13 +444,21 @@ export function WalkthroughScene() {
         data-vfg-room="wall-east"
       >
         <planeGeometry args={[ROOM.depth, ROOM.height]} />
-        <meshStandardMaterial
-          color="#ece2cf"
-          roughness={0.92}
+        <meshPhysicalMaterial
+          color="#f0e6d2"
+          roughness={0.78}
           metalness={0}
+          clearcoat={0.15}
+          clearcoatRoughness={0.6}
           side={THREE.DoubleSide}
         />
       </mesh>
+
+      {/* Architectural trim — thin baseboard and crown-moulding strips
+          along the gallery walls. Adds depth where wall meets floor /
+          ceiling so the room reads as a finished interior rather than
+          an empty box. */}
+      <GalleryTrim />
 
       {/* ----------------------------------------------------------------
           Lighting plan (Req 2.3, 9.4).
@@ -523,6 +554,238 @@ function CeilingFixture({ position }: { position: [number, number, number] }) {
       <mesh position={[0, -housingHeight / 2 - 0.001, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <circleGeometry args={[bulbRadius, 24]} />
         <meshBasicMaterial color="#fff2cc" toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * GalleryTrim — thin painted-wood baseboards along the floor edge
+ * and crown moulding strips along the ceiling edge of the gallery's
+ * three solid walls (north, east, west). Adds architectural depth
+ * where wall meets floor or ceiling without burdening the scene
+ * with full 3D moulding profiles.
+ *
+ * Each trim is a thin axis-aligned box, painted in a near-white
+ * eggshell with a slight clearcoat so it reads as semi-gloss
+ * woodwork against the warmer matte walls. The south wall is
+ * skipped because `SouthWallWithDoorway` carries its own facade
+ * detail and the doorway interrupts the trim line.
+ */
+function GalleryTrim() {
+  const baseboardHeight = 0.12;
+  const baseboardDepth = 0.025;
+  const crownHeight = 0.1;
+  const crownDepth = 0.025;
+  const halfW = ROOM.width / 2;
+  const halfD = ROOM.depth / 2;
+  const trimColor = "#fdf6e8";
+
+  return (
+    <group data-vfg-room="gallery-trim">
+      {/* North-wall baseboard */}
+      <mesh position={[0, baseboardHeight / 2, -halfD + baseboardDepth / 2]}>
+        <boxGeometry args={[ROOM.width, baseboardHeight, baseboardDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+      {/* North-wall crown moulding */}
+      <mesh
+        position={[0, ROOM.height - crownHeight / 2, -halfD + crownDepth / 2]}
+      >
+        <boxGeometry args={[ROOM.width, crownHeight, crownDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+
+      {/* West-wall baseboard */}
+      <mesh
+        position={[-halfW + baseboardDepth / 2, baseboardHeight / 2, 0]}
+      >
+        <boxGeometry args={[baseboardDepth, baseboardHeight, ROOM.depth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+      {/* West-wall crown moulding */}
+      <mesh
+        position={[-halfW + crownDepth / 2, ROOM.height - crownHeight / 2, 0]}
+      >
+        <boxGeometry args={[crownDepth, crownHeight, ROOM.depth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+
+      {/* East-wall baseboard */}
+      <mesh
+        position={[halfW - baseboardDepth / 2, baseboardHeight / 2, 0]}
+      >
+        <boxGeometry args={[baseboardDepth, baseboardHeight, ROOM.depth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+      {/* East-wall crown moulding */}
+      <mesh
+        position={[halfW - crownDepth / 2, ROOM.height - crownHeight / 2, 0]}
+      >
+        <boxGeometry args={[crownDepth, crownHeight, ROOM.depth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * FoyerTrim — eggshell baseboard + crown moulding strips for the
+ * three solid foyer walls (east, west, back). Mirrors `GalleryTrim`
+ * so the architectural language reads continuous when the visitor
+ * walks through the sliding doors. The foyer's south face is the
+ * gallery facade (handled by `SouthWallWithDoorway`) and its north
+ * face is open onto the gallery, so neither carries trim of its own.
+ */
+function FoyerTrim({
+  z0,
+  z1,
+  halfFoyerW,
+}: {
+  z0: number;
+  z1: number;
+  halfFoyerW: number;
+}) {
+  const baseboardHeight = 0.12;
+  const baseboardDepth = 0.025;
+  const crownHeight = 0.1;
+  const crownDepth = 0.025;
+  const foyerDepth = z1 - z0;
+  const trimColor = "#fdf6e8";
+
+  return (
+    <group data-vfg-room="foyer-trim">
+      {/* West-wall baseboard */}
+      <mesh
+        position={[
+          -halfFoyerW + baseboardDepth / 2,
+          baseboardHeight / 2,
+          (z0 + z1) / 2,
+        ]}
+      >
+        <boxGeometry args={[baseboardDepth, baseboardHeight, foyerDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+      {/* West-wall crown moulding */}
+      <mesh
+        position={[
+          -halfFoyerW + crownDepth / 2,
+          ROOM.height - crownHeight / 2,
+          (z0 + z1) / 2,
+        ]}
+      >
+        <boxGeometry args={[crownDepth, crownHeight, foyerDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+
+      {/* East-wall baseboard */}
+      <mesh
+        position={[
+          halfFoyerW - baseboardDepth / 2,
+          baseboardHeight / 2,
+          (z0 + z1) / 2,
+        ]}
+      >
+        <boxGeometry args={[baseboardDepth, baseboardHeight, foyerDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+      {/* East-wall crown moulding */}
+      <mesh
+        position={[
+          halfFoyerW - crownDepth / 2,
+          ROOM.height - crownHeight / 2,
+          (z0 + z1) / 2,
+        ]}
+      >
+        <boxGeometry args={[crownDepth, crownHeight, foyerDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+
+      {/* Back-wall baseboard */}
+      <mesh
+        position={[0, baseboardHeight / 2, z1 - baseboardDepth / 2]}
+      >
+        <boxGeometry args={[halfFoyerW * 2, baseboardHeight, baseboardDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
+      </mesh>
+      {/* Back-wall crown moulding */}
+      <mesh
+        position={[0, ROOM.height - crownHeight / 2, z1 - crownDepth / 2]}
+      >
+        <boxGeometry args={[halfFoyerW * 2, crownHeight, crownDepth]} />
+        <meshPhysicalMaterial
+          color={trimColor}
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.4}
+          clearcoatRoughness={0.4}
+        />
       </mesh>
     </group>
   );
@@ -802,25 +1065,40 @@ function FoyerChamber() {
 
   return (
     <group data-vfg-room="foyer">
-      {/* Lobby floor — warm walnut. */}
+      {/* Lobby floor — polished walnut. Clearcoat picks up a soft
+          sheen off the wall-washer fixtures so the floor reads as
+          finished hardwood. */}
       <mesh
         position={[0, 0, (z0 + z1) / 2]}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
       >
         <planeGeometry args={[FOYER_WIDTH, FOYER_DEPTH]} />
-        <meshStandardMaterial color="#7a5a3c" roughness={0.7} metalness={0} />
+        <meshPhysicalMaterial
+          color="#7a5a3c"
+          roughness={0.45}
+          metalness={0}
+          clearcoat={0.55}
+          clearcoatRoughness={0.3}
+          sheen={0.25}
+          sheenColor="#3a2410"
+        />
       </mesh>
 
-      {/* Lobby ceiling — warm off-white so the foyer reads as a
-          well-lit indoor vestibule rather than open night sky. */}
+      {/* Lobby ceiling — warm off-white plaster. */}
       <mesh
         position={[0, ROOM.height, (z0 + z1) / 2]}
         rotation={[Math.PI / 2, 0, 0]}
         receiveShadow
       >
         <planeGeometry args={[FOYER_WIDTH, FOYER_DEPTH]} />
-        <meshStandardMaterial color="#ece2cf" roughness={0.95} metalness={0} />
+        <meshPhysicalMaterial
+          color="#f1e8d4"
+          roughness={0.85}
+          metalness={0}
+          sheen={0.18}
+          sheenColor="#ffd9a3"
+        />
       </mesh>
 
       {/* Lobby west wall — sandy beige. */}
@@ -829,10 +1107,12 @@ function FoyerChamber() {
         rotation={[0, Math.PI / 2, 0]}
       >
         <planeGeometry args={[FOYER_DEPTH, ROOM.height]} />
-        <meshStandardMaterial
-          color="#d6c7ad"
-          roughness={0.9}
+        <meshPhysicalMaterial
+          color="#dcc9a5"
+          roughness={0.78}
           metalness={0}
+          clearcoat={0.15}
+          clearcoatRoughness={0.6}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -843,10 +1123,12 @@ function FoyerChamber() {
         rotation={[0, -Math.PI / 2, 0]}
       >
         <planeGeometry args={[FOYER_DEPTH, ROOM.height]} />
-        <meshStandardMaterial
-          color="#d6c7ad"
-          roughness={0.9}
+        <meshPhysicalMaterial
+          color="#dcc9a5"
+          roughness={0.78}
           metalness={0}
+          clearcoat={0.15}
+          clearcoatRoughness={0.6}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -859,13 +1141,20 @@ function FoyerChamber() {
         rotation={[0, 0, 0]}
       >
         <planeGeometry args={[FOYER_WIDTH, ROOM.height]} />
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           color="#a37a4b"
-          roughness={0.9}
+          roughness={0.78}
           metalness={0}
+          clearcoat={0.15}
+          clearcoatRoughness={0.6}
           side={THREE.DoubleSide}
         />
       </mesh>
+
+      {/* Foyer trim — same eggshell baseboard / crown moulding as the
+          gallery proper, so the architectural language reads
+          continuous as the visitor walks through the doors. */}
+      <FoyerTrim z0={z0} z1={z1} halfFoyerW={halfFoyerW} />
 
       {/* Lobby fill light — two warm amber wall-washers tucked toward
           the side walls. The ceiling-centre fixture was removed because
@@ -962,6 +1251,7 @@ function SlidingGlassDoors() {
   // keeps the seam from showing a hairline gap when closed.
   const panelWidth = DOORWAY_WIDTH / 2 + 0.001;
   const panelHeight = DOORWAY_HEIGHT;
+  const panelThickness = 0.025; // give the glass real volume so reflections / refraction read
   const z = ROOM.depth / 2 + 0.02; // sit just outside the wall plane on the foyer side
 
   // Animate openness from 0 (closed) → 1 (fully open) when the stage
@@ -970,8 +1260,8 @@ function SlidingGlassDoors() {
   const opennessRef = useRef(0);
   const leftRef = useRef<THREE.Group | null>(null);
   const rightRef = useRef<THREE.Group | null>(null);
-  const leftMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
-  const rightMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const leftMatRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const rightMatRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
   const seamMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
 
   // Door opacity stays at 0.75 throughout: closed, sliding, fully
@@ -1048,29 +1338,34 @@ function SlidingGlassDoors() {
         ref={leftRef}
         position={[-panelWidth / 2, DOORWAY_HEIGHT / 2, z]}
       >
+        {/* Glass panel — a thin box (not a plane) so the edges catch
+            reflections and refraction looks volumetric.
+            `meshPhysicalMaterial` with `transmission` gives real
+            see-through glass under R3F, with a tiny tint and a
+            clear-coat layer for the showroom-glass look. */}
         <mesh>
-          <planeGeometry args={[panelWidth, panelHeight]} />
-          <meshStandardMaterial
+          <boxGeometry args={[panelWidth, panelHeight, panelThickness]} />
+          <meshPhysicalMaterial
             ref={leftMatRef}
-            color="#e0eaf2"
+            color="#cfe0ec"
             transparent
             opacity={CLOSED_OPACITY}
-            roughness={0.15}
-            metalness={0.1}
+            transmission={0.9}
+            thickness={0.04}
+            ior={1.45}
+            roughness={0.08}
+            metalness={0}
+            clearcoat={1}
+            clearcoatRoughness={0.05}
             side={THREE.DoubleSide}
             depthWrite={false}
           />
         </mesh>
-        {/* Door handle — a vertical chrome bar near the centre seam,
-            mounted slightly forward of the glass on the foyer side. */}
-        <mesh position={[panelWidth / 2 - 0.18, 0, 0.025]}>
-          <boxGeometry args={[0.04, panelHeight * 0.55, 0.04]} />
-          <meshStandardMaterial
-            color="#dddddd"
-            roughness={0.2}
-            metalness={0.85}
-          />
-        </mesh>
+        <DoorHandle
+          xOffset={panelWidth / 2 - 0.18}
+          panelHeight={panelHeight}
+          panelThickness={panelThickness}
+        />
       </group>
 
       {/* Right door */}
@@ -1079,26 +1374,28 @@ function SlidingGlassDoors() {
         position={[panelWidth / 2, DOORWAY_HEIGHT / 2, z]}
       >
         <mesh>
-          <planeGeometry args={[panelWidth, panelHeight]} />
-          <meshStandardMaterial
+          <boxGeometry args={[panelWidth, panelHeight, panelThickness]} />
+          <meshPhysicalMaterial
             ref={rightMatRef}
-            color="#e0eaf2"
+            color="#cfe0ec"
             transparent
             opacity={CLOSED_OPACITY}
-            roughness={0.15}
-            metalness={0.1}
+            transmission={0.9}
+            thickness={0.04}
+            ior={1.45}
+            roughness={0.08}
+            metalness={0}
+            clearcoat={1}
+            clearcoatRoughness={0.05}
             side={THREE.DoubleSide}
             depthWrite={false}
           />
         </mesh>
-        <mesh position={[-panelWidth / 2 + 0.18, 0, 0.025]}>
-          <boxGeometry args={[0.04, panelHeight * 0.55, 0.04]} />
-          <meshStandardMaterial
-            color="#dddddd"
-            roughness={0.2}
-            metalness={0.85}
-          />
-        </mesh>
+        <DoorHandle
+          xOffset={-panelWidth / 2 + 0.18}
+          panelHeight={panelHeight}
+          panelThickness={panelThickness}
+        />
       </group>
       {/* Centre seam — a thin metallic strip where the two panels
           meet, so the closed pose reads as two distinct doors rather
@@ -1126,6 +1423,89 @@ function SlidingGlassDoors() {
       <mesh position={[0, DOORWAY_HEIGHT - 0.02, z - 0.005]}>
         <boxGeometry args={[DOORWAY_WIDTH + 0.05, 0.04, 0.01]} />
         <meshStandardMaterial color="#3a3a45" roughness={0.4} metalness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * DoorHandle — a vertical brushed-chrome pull bar, mounted off the
+ * foyer-side face of a door panel by two short cylindrical standoff
+ * posts. Reads as a real shopfront pull rather than a flat dark
+ * rectangle:
+ *
+ *   - Pull bar:   a vertical capsule-ended cylinder along the
+ *                 panel's vertical axis. Polished chrome material
+ *                 with low roughness so it catches highlights even
+ *                 under ambient + hemisphere lighting only.
+ *   - Standoffs:  two short horizontal cylinders that connect the
+ *                 pull bar to the door panel, sitting at the top
+ *                 and bottom of the bar.
+ *
+ * `xOffset` is the local x-coordinate of the handle on the panel
+ * (positive = right side of panel, negative = left side). The
+ * handle sits just in front of the glass on the foyer side; its
+ * shadow under the bevel reads as the gap to the panel.
+ */
+function DoorHandle({
+  xOffset,
+  panelHeight,
+  panelThickness,
+}: {
+  xOffset: number;
+  panelHeight: number;
+  panelThickness: number;
+}) {
+  const barLength = panelHeight * 0.55;
+  const barRadius = 0.018;
+  const standoffLength = 0.06;
+  const standoffRadius = 0.012;
+  // Bar centre sits this far forward of the panel's front face so it
+  // looks mounted in front of the glass rather than embedded in it.
+  const barZ = panelThickness / 2 + standoffLength;
+
+  return (
+    <group position={[xOffset, 0, 0]}>
+      {/* Pull bar — vertical cylinder. Default cylinder axis is +Y so
+          no rotation needed. */}
+      <mesh position={[0, 0, barZ]}>
+        <cylinderGeometry args={[barRadius, barRadius, barLength, 16]} />
+        <meshStandardMaterial
+          color="#e8e8ec"
+          roughness={0.2}
+          metalness={0.95}
+          envMapIntensity={1.3}
+        />
+      </mesh>
+      {/* Top standoff post — short cylinder bridging the bar back
+          to the panel face. Rotated so its long axis runs along
+          the local Z (away from the panel into the foyer). */}
+      <mesh
+        position={[0, barLength / 2 - 0.04, barZ - standoffLength / 2]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <cylinderGeometry
+          args={[standoffRadius, standoffRadius, standoffLength, 12]}
+        />
+        <meshStandardMaterial
+          color="#cfcfd3"
+          roughness={0.25}
+          metalness={0.9}
+        />
+      </mesh>
+      {/* Bottom standoff post */}
+      <mesh
+        position={[0, -(barLength / 2 - 0.04), barZ - standoffLength / 2]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <cylinderGeometry
+          args={[standoffRadius, standoffRadius, standoffLength, 12]}
+        />
+        <meshStandardMaterial
+          color="#cfcfd3"
+          roughness={0.25}
+          metalness={0.9}
+        />
       </mesh>
     </group>
   );

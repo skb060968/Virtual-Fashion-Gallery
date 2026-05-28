@@ -78,14 +78,20 @@ const FRAME_HEIGHT = 1.4;
 /** Frame thickness along the wall normal. Thin so the frame visually reads
  * as a flat picture frame rather than a box. */
 const FRAME_DEPTH = 0.06;
-/** Margin between the outer frame edge and the canvas opening on each side. */
-const FRAME_INSET = 0.06;
+/** Width of the painted-wood outer moulding visible around the mat board. */
+const MOULDING_WIDTH = 0.075;
+/** Width of the cream mat board strip visible between moulding and photo. */
+const MAT_WIDTH = 0.06;
+/** Total inset from outer-frame edge to the photo opening. */
+const FRAME_INSET = MOULDING_WIDTH + MAT_WIDTH;
 /** Maximum canvas opening width. */
 const CANVAS_OPENING_WIDTH = FRAME_WIDTH - 2 * FRAME_INSET;
 /** Maximum canvas opening height. */
 const CANVAS_OPENING_HEIGHT = FRAME_HEIGHT - 2 * FRAME_INSET;
-/** Local-Z offset for the canvas mesh: just in front of the frame box's
- * front face so it sits flush in the opening without z-fighting. */
+/** Local-Z offset for the mat board so it sits inside the moulding rim. */
+const MAT_DEPTH_OFFSET = FRAME_DEPTH / 2 - 0.005;
+/** Local-Z offset for the canvas mesh: just in front of the mat board so
+ * the photo sits flush in the opening without z-fighting. */
 const CANVAS_DEPTH_OFFSET = FRAME_DEPTH / 2 + 0.001;
 /** Local-Z offset for the invisible interaction collider: slightly further
  * out so it reliably catches click / tap input without poking through the
@@ -294,21 +300,89 @@ export function SketchFrame({
       rotation={[0, groupYaw, 0]}
       data-record-id={record.id}
     >
-      {/* Outer frame: thin matte-black box around the canvas opening. */}
+      {/* Outer moulding rim — a warm walnut box around the canvas
+          opening, with mild metallic sheen so the bevel edges catch
+          a subtle highlight. The box's central area is later
+          covered by the mat board + photo, so only the rim is
+          visible. */}
       <mesh castShadow receiveShadow>
         <boxGeometry args={[FRAME_WIDTH, FRAME_HEIGHT, FRAME_DEPTH]} />
-        <meshStandardMaterial
-          color="#1a1a1a"
-          roughness={0.9}
+        <meshPhysicalMaterial
+          color="#3a2418"
+          roughness={0.35}
+          metalness={0.15}
+          clearcoat={0.6}
+          clearcoatRoughness={0.25}
+        />
+      </mesh>
+
+      {/* Brass inner-rim bevel — a thin box just inside the moulding
+          rim, sitting slightly proud of the mat board, so the
+          opening reads as gilded gallery frame rather than a plain
+          black hole. Implemented as four thin slabs framing the
+          mat opening. */}
+      {(() => {
+        const rimW = MAT_WIDTH * 0.35;
+        const rimDepth = 0.012;
+        const innerW = FRAME_WIDTH - 2 * MOULDING_WIDTH;
+        const innerH = FRAME_HEIGHT - 2 * MOULDING_WIDTH;
+        const rimZ = FRAME_DEPTH / 2 - rimDepth / 2 + 0.0005;
+        const rimY = innerH / 2 - rimW / 2;
+        const rimX = innerW / 2 - rimW / 2;
+        const brass = (
+          <meshPhysicalMaterial
+            color="#caa260"
+            roughness={0.3}
+            metalness={0.9}
+            emissive="#3a2a0c"
+            emissiveIntensity={0.25}
+          />
+        );
+        return (
+          <>
+            <mesh position={[0, rimY, rimZ]}>
+              <boxGeometry args={[innerW, rimW, rimDepth]} />
+              {brass}
+            </mesh>
+            <mesh position={[0, -rimY, rimZ]}>
+              <boxGeometry args={[innerW, rimW, rimDepth]} />
+              {brass}
+            </mesh>
+            <mesh position={[-rimX, 0, rimZ]}>
+              <boxGeometry args={[rimW, innerH - 2 * rimW, rimDepth]} />
+              {brass}
+            </mesh>
+            <mesh position={[rimX, 0, rimZ]}>
+              <boxGeometry args={[rimW, innerH - 2 * rimW, rimDepth]} />
+              {brass}
+            </mesh>
+          </>
+        );
+      })()}
+
+      {/* Mat board — cream paper card recessed inside the moulding
+          rebate. Sits behind the brass bevel and around the photo,
+          giving the print a museum-mounted look. */}
+      <mesh position={[0, 0, MAT_DEPTH_OFFSET]}>
+        <planeGeometry
+          args={[
+            FRAME_WIDTH - 2 * MOULDING_WIDTH,
+            FRAME_HEIGHT - 2 * MOULDING_WIDTH,
+          ]}
+        />
+        <meshPhysicalMaterial
+          color="#f3ead2"
+          roughness={0.7}
           metalness={0}
+          sheen={0.2}
+          sheenColor="#fff5dd"
         />
       </mesh>
 
       {/* Canvas mesh: scaled to preserve the source-image aspect ratio.
           Uses `meshBasicMaterial` so the dress photo is shown at its
           stored colours regardless of the gallery lighting — the photo
-          is already its own "lit" representation. The frame's matte-
-          black box still receives spotlight bloom around it.
+          is already its own "lit" representation.
 
           When the texture is still resolving or fell back to the
           placeholder we paint the mesh in a warm neutral so the frame
