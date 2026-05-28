@@ -14,12 +14,29 @@ export type SketchRecord = {
   title: string;
   /** ISO 8601 calendar date YYYY-MM-DD. */
   date: string;
-  /** Medium descriptor, e.g. "graphite on paper". 1–80 chars. */
-  medium: string;
+  /** Medium descriptor, e.g. "graphite on paper". 1–80 chars when present.
+   * Optional so non-artwork records (e.g. the designer profile card) can
+   * omit it cleanly. */
+  medium?: string;
   /** Long-form description. 0–2000 chars. Empty string suppresses the field in panels. */
   description: string;
   /** "/sketches/foo.jpg" under /public, or "https://..." absolute URL. */
   imageSrc: string;
+  /**
+   * Optional: alternate full-resolution views for this record, used by the
+   * Zoom_View overlay to power a thumbnail-driven gallery (mirrors the GP
+   * Fashion shop detail page). The first entry should be the same value as
+   * `imageSrc`. Each entry must satisfy the same shape rule as `imageSrc`.
+   * Omit (or supply length-1 array) for records with a single canonical view.
+   */
+  images?: ReadonlyArray<string>;
+  /**
+   * Optional: thumbnail variants paired by index with `images`. Same shape
+   * rule. Length must match `images` exactly. Used as the `<img src>` for
+   * each clickable preview in the Zoom_View thumbnail strip so the strip
+   * loads small files instead of the full hi-res renders.
+   */
+  thumbnails?: ReadonlyArray<string>;
 };
 
 /**
@@ -82,14 +99,16 @@ export function validateSketchRecord(value: unknown): ValidateResult {
     errors.title = `length must be between ${SKETCH_BOUNDS.title.min} and ${SKETCH_BOUNDS.title.max} characters`;
   }
 
-  // medium
-  if (typeof record.medium !== "string") {
-    errors.medium = "must be a string";
-  } else if (
-    record.medium.length < SKETCH_BOUNDS.medium.min ||
-    record.medium.length > SKETCH_BOUNDS.medium.max
-  ) {
-    errors.medium = `length must be between ${SKETCH_BOUNDS.medium.min} and ${SKETCH_BOUNDS.medium.max} characters`;
+  // medium (optional). When present, must be a string within bounds.
+  if (record.medium !== undefined) {
+    if (typeof record.medium !== "string") {
+      errors.medium = "must be a string";
+    } else if (
+      record.medium.length < SKETCH_BOUNDS.medium.min ||
+      record.medium.length > SKETCH_BOUNDS.medium.max
+    ) {
+      errors.medium = `length must be between ${SKETCH_BOUNDS.medium.min} and ${SKETCH_BOUNDS.medium.max} characters`;
+    }
   }
 
   // description
@@ -116,6 +135,47 @@ export function validateSketchRecord(value: unknown): ValidateResult {
     errors.imageSrc = "must be a string";
   } else if (!IMAGE_SRC_RE.test(record.imageSrc)) {
     errors.imageSrc = "must start with '/' or 'https://'";
+  }
+
+  // images (optional). When present, must be a non-empty array of strings,
+  // each conforming to IMAGE_SRC_RE. The first entry must equal `imageSrc`
+  // so consumers always have a canonical primary view.
+  if (record.images !== undefined) {
+    if (!Array.isArray(record.images) || record.images.length === 0) {
+      errors.images = "must be a non-empty array of strings";
+    } else {
+      const badIdx = (record.images as unknown[]).findIndex(
+        (x) => typeof x !== "string" || !IMAGE_SRC_RE.test(x as string),
+      );
+      if (badIdx >= 0) {
+        errors.images = `entry ${badIdx} must start with '/' or 'https://'`;
+      } else if (
+        typeof record.imageSrc === "string" &&
+        (record.images as ReadonlyArray<string>)[0] !== record.imageSrc
+      ) {
+        errors.images = "first entry must equal imageSrc";
+      }
+    }
+  }
+
+  // thumbnails (optional). When present, must be a string array whose
+  // length matches `images` and whose entries satisfy IMAGE_SRC_RE.
+  if (record.thumbnails !== undefined) {
+    if (!Array.isArray(record.thumbnails)) {
+      errors.thumbnails = "must be an array of strings";
+    } else if (
+      Array.isArray(record.images) &&
+      record.thumbnails.length !== (record.images as ReadonlyArray<unknown>).length
+    ) {
+      errors.thumbnails = "length must match images";
+    } else {
+      const badIdx = (record.thumbnails as unknown[]).findIndex(
+        (x) => typeof x !== "string" || !IMAGE_SRC_RE.test(x as string),
+      );
+      if (badIdx >= 0) {
+        errors.thumbnails = `entry ${badIdx} must start with '/' or 'https://'`;
+      }
+    }
   }
 
   if (Object.keys(errors).length > 0) {

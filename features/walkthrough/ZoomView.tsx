@@ -161,6 +161,32 @@ function ZoomViewOverlay({
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
   /**
+   * Records may carry an `images[]` array of alternate full-resolution
+   * views (Sketch_Record extension; mirrors the GP Fashion shop detail
+   * page). The active image starts at index 0 (the cover, which equals
+   * `record.imageSrc`) and updates when the visitor taps a thumbnail.
+   * For records without an `images[]` array we fall back to the single
+   * `imageSrc` so the overlay still renders.
+   */
+  const images = useMemo<ReadonlyArray<string>>(
+    () =>
+      record.images && record.images.length > 0
+        ? record.images
+        : [record.imageSrc],
+    [record],
+  );
+  const thumbnails = useMemo<ReadonlyArray<string>>(
+    () =>
+      record.thumbnails && record.thumbnails.length === images.length
+        ? record.thumbnails
+        : images,
+    [record, images],
+  );
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeImageSrc = images[activeIndex] ?? record.imageSrc;
+  const hasGallery = images.length > 1;
+
+  /**
    * Image load state machine:
    *   - "loading"     — still waiting for the <img> to fire `onLoad`.
    *   - "loaded"      — image is ready; show it.
@@ -285,6 +311,12 @@ function ZoomViewOverlay({
       setImageStatus((prev) => (prev === "loading" ? "placeholder" : prev));
     }, IMAGE_LOAD_TIMEOUT_MS);
     return () => window.clearTimeout(timeoutId);
+  }, [record.id, activeIndex]);
+
+  // Reset the active gallery index whenever the record changes so a
+  // newly-opened Zoom_View always starts on the cover image.
+  useEffect(() => {
+    setActiveIndex(0);
   }, [record.id]);
 
   const onImageLoad = useCallback(() => {
@@ -386,7 +418,7 @@ function ZoomViewOverlay({
         <div className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto px-4 pb-8 sm:flex-row sm:items-center sm:justify-center sm:gap-10 sm:px-10">
           {/* Image surface (Req 3.8, 3.9) */}
           <motion.div
-            className="flex w-full max-w-full items-center justify-center sm:max-w-[55%] sm:flex-1"
+            className="flex w-full max-w-full flex-col items-center gap-3 sm:max-w-[55%] sm:flex-1"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
@@ -399,8 +431,9 @@ function ZoomViewOverlay({
               {showImage ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={record.imageSrc}
-                  alt={`${record.title} — ${record.medium}`}
+                  key={activeImageSrc}
+                  src={activeImageSrc}
+                  alt={record.medium ? `${record.title} \u2014 ${record.medium}` : record.title}
                   className="block h-auto max-h-[50vh] w-auto max-w-full object-contain sm:max-h-[75vh]"
                   draggable={false}
                   onLoad={onImageLoad}
@@ -415,7 +448,8 @@ function ZoomViewOverlay({
                   {!showPlaceholder ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={record.imageSrc}
+                      key={activeImageSrc}
+                      src={activeImageSrc}
                       alt=""
                       aria-hidden="true"
                       className="absolute h-px w-px opacity-0"
@@ -435,6 +469,51 @@ function ZoomViewOverlay({
                 </>
               )}
             </div>
+
+            {/* Thumbnail strip — only mounted when the record has more
+                than one view. Tapping a thumbnail swaps the main image
+                via `setActiveIndex`; the watchdog re-arms because
+                `activeIndex` is in its dependency array. The strip
+                scrolls horizontally on overflow so portrait phones
+                with narrow widths can still reach every thumbnail. */}
+            {hasGallery ? (
+              <div
+                className="flex w-full max-w-full items-center gap-2 overflow-x-auto pb-1 sm:max-w-[60vh]"
+                role="tablist"
+                aria-label={`${record.title} alternate views`}
+                data-testid="zoom-view-thumbnails"
+              >
+                {images.map((src, idx) => {
+                  const isActive = idx === activeIndex;
+                  return (
+                    <button
+                      key={src}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-label={`View ${idx + 1} of ${images.length}`}
+                      onClick={() => setActiveIndex(idx)}
+                      className={`relative aspect-[3/4] h-16 flex-shrink-0 overflow-hidden rounded-sm transition-all sm:h-20 ${
+                        isActive
+                          ? "ring-2 ring-amber-300 shadow-md"
+                          : "ring-1 ring-white/20 hover:ring-amber-200/60"
+                      } ${FOCUS_RING_CLASS}`}
+                      data-testid="zoom-view-thumbnail"
+                      data-active={isActive ? "true" : "false"}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={thumbnails[idx]}
+                        alt=""
+                        aria-hidden="true"
+                        draggable={false}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </motion.div>
 
           {/* Metadata surface (Req 3.1, 3.8, 3.10) */}
@@ -452,12 +531,23 @@ function ZoomViewOverlay({
             >
               {record.title}
             </h2>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm text-gallery-muted">
-              <dt className="font-display uppercase tracking-wider">Date</dt>
-              <dd className="font-body text-gallery-fg">{record.date}</dd>
-              <dt className="font-display uppercase tracking-wider">Medium</dt>
-              <dd className="font-body text-gallery-fg">{record.medium}</dd>
-            </dl>
+            {/*
+              Two layouts:
+
+                - "designer" record: a person, not a dress. The
+                  description carries the role plus the bio in a single
+                  paragraph (the catalogue stores no `medium` for this
+                  record). Date is intentionally hidden — it has no
+                  meaning for a profile card.
+
+                - all other records: dresses. The Sketch_Record `date`
+                  and `medium` fields are kept on the data layer for
+                  future use (cataloguing, sort orders) but the visitor-
+                  facing zoom shows only the title and the description.
+                  Records with an empty description (the v1 default for
+                  every dress) drop the description block entirely so
+                  the metadata column collapses to just the title.
+            */}
             {hasDescription ? (
               <p
                 id="zoom-view-description"

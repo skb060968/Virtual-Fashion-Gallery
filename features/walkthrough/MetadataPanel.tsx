@@ -155,17 +155,19 @@ export function MetadataPanel({
                 {record.date}
               </dd>
             </div>
-            <div className="flex gap-2">
-              <dt className="uppercase tracking-wider text-gallery-muted">
-                Medium
-              </dt>
-              <dd
-                data-vfg-metadata-medium
-                className="text-gallery-fg"
-              >
-                {record.medium}
-              </dd>
-            </div>
+            {record.medium ? (
+              <div className="flex gap-2">
+                <dt className="uppercase tracking-wider text-gallery-muted">
+                  Medium
+                </dt>
+                <dd
+                  data-vfg-metadata-medium
+                  className="text-gallery-fg"
+                >
+                  {record.medium}
+                </dd>
+              </div>
+            ) : null}
           </dl>
           {hasDescription && (
             <p

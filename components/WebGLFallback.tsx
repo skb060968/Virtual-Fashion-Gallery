@@ -96,7 +96,9 @@ export function WebGLFallback() {
 
       <ol className="flex flex-col gap-12" aria-label="Sketch catalogue">
         {sketches.map((record) => {
-          const altText = `${record.title} \u2014 ${record.medium}`;
+          const altText = record.medium
+            ? `${record.title} \u2014 ${record.medium}`
+            : record.title;
           const hasDescription = record.description.length > 0;
 
           return (
@@ -124,8 +126,12 @@ export function WebGLFallback() {
                       </h2>
                       <p className="text-sm text-[var(--gallery-muted)]">
                         <time dateTime={record.date}>{record.date}</time>
-                        <span aria-hidden="true"> · </span>
-                        <span>{record.medium}</span>
+                        {record.medium ? (
+                          <>
+                            <span aria-hidden="true"> · </span>
+                            <span>{record.medium}</span>
+                          </>
+                        ) : null}
                       </p>
                     </figcaption>
                   </figure>

@@ -29,198 +29,107 @@
 
 import { assertSketchCatalog, type SketchRecord } from "./sketch-record";
 
+/**
+ * Build a `SketchRecord` for one dress slug, deriving `imageSrc`,
+ * `images`, and `thumbnails` from the slug + the count of alternate
+ * views available on disk.
+ *
+ * File layout convention (see `/public/images/shop/`):
+ *   /items/<slug>/<slug>-cover.webp        ← canonical primary
+ *   /items/<slug>/<slug>-1.webp ... -N.webp ← alternate views
+ *   /thumbnails/<slug>/<slug>-cover.webp   ← cover preview
+ *   /thumbnails/<slug>/<slug>-1.webp ... -N.webp ← alternate previews
+ *
+ * `altCount` counts the alternate views (excluding the cover). The
+ * helper builds `images` as `[cover, alt-1, alt-2, ..., alt-N]` so the
+ * cover is always the first entry — which `validateSketchRecord`
+ * requires (`images[0] === imageSrc`). The thumbnail array follows the
+ * same order so `images[i]` and `thumbnails[i]` always describe the
+ * same view.
+ *
+ * `altCount === 0` collapses to a single-image record (cover only).
+ */
+function makeDressRecord(
+  index: number,
+  altCount: number,
+): SketchRecord {
+  const slug = `${index}dress`;
+  const cover = `/images/shop/items/${slug}/${slug}-cover.webp`;
+  const coverThumb = `/images/shop/thumbnails/${slug}/${slug}-cover.webp`;
+  const alts = Array.from(
+    { length: altCount },
+    (_, i) => `/images/shop/items/${slug}/${slug}-${i + 1}.webp`,
+  );
+  const altThumbs = Array.from(
+    { length: altCount },
+    (_, i) =>
+      `/images/shop/thumbnails/${slug}/${slug}-${i + 1}.webp`,
+  );
+  const images = [cover, ...alts];
+  const thumbnails = [coverThumb, ...altThumbs];
+  return {
+    id: slug,
+    title: `Style ${String(index).padStart(2, "0")}`,
+    date: "2024-01-01",
+    medium: "Couture portfolio piece",
+    description: "",
+    imageSrc: cover,
+    images,
+    thumbnails,
+  };
+}
+
+/**
+ * Per-slug count of alternate views available on disk under
+ * `/public/images/shop/items/<slug>/`. Manually maintained alongside
+ * the asset folders; if a new view is added, bump the matching count
+ * and the Zoom_View thumbnail strip will pick it up automatically.
+ *
+ * Counts taken at the time of writing (2024) by counting webp files
+ * per folder and subtracting the cover.
+ */
+const DRESS_ALT_COUNTS: ReadonlyArray<readonly [number, number]> = [
+  [1, 1],
+  [2, 3],
+  [3, 4],
+  [4, 3],
+  [5, 5],
+  [6, 1],
+  [7, 3],
+  [8, 1],
+  [9, 1],
+  [10, 2],
+  [11, 3],
+  [12, 2],
+  [13, 1],
+  [14, 1],
+  [15, 1],
+  [16, 1],
+  [17, 1],
+  [18, 1],
+  [19, 1],
+  [20, 4],
+  [21, 2],
+  [22, 1],
+];
+
 export const sketches: ReadonlyArray<SketchRecord> = [
   // Designer portrait — sits first in catalogue order so the placement
   // walk anchors it at the start of the west wall, the first artwork
   // the visitor encounters on their right after stepping through the
   // sliding doors. Click → Zoom_View shows the designer's photograph
   // alongside the same metadata layout as a dress (the zoom panel
-  // already renders `title`, `medium`, and `description`).
+  // already renders `title`, `medium`, and `description`). Single-
+  // image record — no thumbnail strip in the Zoom_View.
   {
     id: "designer",
     title: "Piyush Bholla",
     date: "2024-01-01",
-    medium: "Founder & Creative Director, GP Fashion",
     description:
-      "An Indian fashion designer working across kidswear, menswear, and womenswear from a Delhi studio. Trained at NIFT Bengaluru and FIT New York, with a practice grounded in detail, craftsmanship, and the quiet pleasure of well-made clothes. Each collection is a balancing act between tradition and innovation, polish and playfulness — clothes that feel authentic, elegant, and joyful to wear. Philosophy: authenticity woven into every detail.",
+      "Founder & Creative Director, GP Fashion. An Indian fashion designer working across kidswear, menswear, and womenswear from a Delhi studio. Trained at NIFT Bengaluru and FIT New York, with a practice grounded in detail, craftsmanship, and the quiet pleasure of well-made clothes. Each collection is a balancing act between tradition and innovation, polish and playfulness — clothes that feel authentic, elegant, and joyful to wear. Philosophy: authenticity woven into every detail.",
     imageSrc: "/images/about/piyush1.jpg",
   },
-  {
-    id: "1dress",
-    title: "Style 01",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/1dress/1dress-cover.webp",
-  },
-  {
-    id: "2dress",
-    title: "Style 02",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/2dress/2dress-cover.webp",
-  },
-  {
-    id: "3dress",
-    title: "Style 03",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/3dress/3dress-cover.webp",
-  },
-  {
-    id: "4dress",
-    title: "Style 04",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/4dress/4dress-cover.webp",
-  },
-  {
-    id: "5dress",
-    title: "Style 05",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/5dress/5dress-cover.webp",
-  },
-  {
-    id: "6dress",
-    title: "Style 06",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/6dress/6dress-cover.webp",
-  },
-  {
-    id: "7dress",
-    title: "Style 07",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/7dress/7dress-cover.webp",
-  },
-  {
-    id: "8dress",
-    title: "Style 08",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/8dress/8dress-cover.webp",
-  },
-  {
-    id: "9dress",
-    title: "Style 09",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/9dress/9dress-cover.webp",
-  },
-  {
-    id: "10dress",
-    title: "Style 10",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/10dress/10dress-cover.webp",
-  },
-  {
-    id: "11dress",
-    title: "Style 11",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/11dress/11dress-cover.webp",
-  },
-  {
-    id: "12dress",
-    title: "Style 12",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/12dress/12dress-cover.webp",
-  },
-  {
-    id: "13dress",
-    title: "Style 13",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/13dress/13dress-cover.webp",
-  },
-  {
-    id: "14dress",
-    title: "Style 14",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/14dress/14dress-cover.webp",
-  },
-  {
-    id: "15dress",
-    title: "Style 15",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/15dress/15dress-cover.webp",
-  },
-  {
-    id: "16dress",
-    title: "Style 16",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/16dress/16dress-cover.webp",
-  },
-  {
-    id: "17dress",
-    title: "Style 17",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/17dress/17dress-cover.webp",
-  },
-  {
-    id: "18dress",
-    title: "Style 18",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/18dress/18dress-cover.webp",
-  },
-  {
-    id: "19dress",
-    title: "Style 19",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/19dress/19dress-cover.webp",
-  },
-  {
-    id: "20dress",
-    title: "Style 20",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/20dress/20dress-cover.webp",
-  },
-  {
-    id: "21dress",
-    title: "Style 21",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/21dress/21dress-cover.webp",
-  },
-  {
-    id: "22dress",
-    title: "Style 22",
-    date: "2024-01-01",
-    medium: "Couture portfolio piece",
-    description: "",
-    imageSrc: "/images/shop/items/22dress/22dress-cover.webp",
-  },
+  ...DRESS_ALT_COUNTS.map(([n, alt]) => makeDressRecord(n, alt)),
 ];
 
 // Run at module top level so any catalogue violation (missing field, bad date,
