@@ -402,30 +402,36 @@ function ZoomViewOverlay({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <ProtectedSurface className="flex h-full w-full flex-col">
-        <header className="flex items-start justify-end p-4 sm:p-6">
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={dismiss}
-            aria-label="Close zoom view"
-            className={`rounded-full bg-gallery-surface/80 px-4 py-2 text-sm font-display tracking-wide text-gallery-fg shadow-sm transition-colors hover:bg-gallery-surface ${FOCUS_RING_CLASS}`}
-          >
-            Close
-          </button>
-        </header>
+      <ProtectedSurface className="relative flex h-full w-full flex-col">
+        {/* Close button — absolutely positioned in the top-right corner
+            so it does not consume vertical space. The image and
+            metadata column then have the full overlay height to share,
+            so nothing scrolls and nothing slides "under" a header
+            strip. */}
+        <button
+          ref={closeButtonRef}
+          type="button"
+          onClick={dismiss}
+          aria-label="Close zoom view"
+          className={`absolute right-3 top-3 z-10 rounded-full bg-black/55 px-4 py-2 text-sm font-display tracking-wide text-gallery-fg shadow-md backdrop-blur-sm transition-colors hover:bg-black/75 sm:right-6 sm:top-6 ${FOCUS_RING_CLASS}`}
+        >
+          Close
+        </button>
 
-        <div className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto px-4 pb-8 sm:flex-row sm:items-center sm:justify-center sm:gap-10 sm:px-10">
-          {/* Image surface (Req 3.8, 3.9) */}
+        <div className="flex h-full min-h-0 w-full flex-col items-stretch gap-3 px-4 pb-4 pt-14 sm:flex-row sm:items-stretch sm:justify-center sm:gap-8 sm:px-10 sm:pb-8 sm:pt-16">
+          {/* Image surface (Req 3.8, 3.9). `min-h-0` is essential —
+              without it a flex column child refuses to shrink below
+              its content height and the cover ends up overflowing the
+              viewport. */}
           <motion.div
-            className="flex w-full max-w-full flex-col items-center gap-3 sm:max-w-[55%] sm:flex-1"
+            className="flex min-h-0 w-full flex-col items-center gap-3 sm:max-w-[55%] sm:flex-1"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={transition}
           >
             <div
-              className="relative flex max-h-[50vh] w-full items-center justify-center overflow-hidden rounded-md bg-gallery-surface/70 shadow-lg sm:max-h-[75vh] sm:max-w-[60vh]"
+              className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-md bg-gallery-surface/70 shadow-lg"
               data-testid="zoom-view-image-frame"
             >
               {showImage ? (
@@ -434,7 +440,7 @@ function ZoomViewOverlay({
                   key={activeImageSrc}
                   src={activeImageSrc}
                   alt={record.medium ? `${record.title} \u2014 ${record.medium}` : record.title}
-                  className="block h-auto max-h-[50vh] w-auto max-w-full object-contain sm:max-h-[75vh]"
+                  className="block h-full max-h-full w-full max-w-full object-contain"
                   draggable={false}
                   onLoad={onImageLoad}
                   onError={onImageError}
@@ -459,7 +465,7 @@ function ZoomViewOverlay({
                     />
                   ) : null}
                   <div
-                    className="flex h-[40vh] w-full items-center justify-center bg-gallery-muted/20 text-sm text-gallery-muted sm:h-[60vh]"
+                    className="flex h-full w-full items-center justify-center bg-gallery-muted/20 text-sm text-gallery-muted"
                     role="img"
                     aria-label={`Placeholder for ${record.title}`}
                     data-testid="zoom-view-placeholder"
@@ -471,14 +477,16 @@ function ZoomViewOverlay({
             </div>
 
             {/* Thumbnail strip — only mounted when the record has more
-                than one view. Tapping a thumbnail swaps the main image
-                via `setActiveIndex`; the watchdog re-arms because
-                `activeIndex` is in its dependency array. The strip
-                scrolls horizontally on overflow so portrait phones
-                with narrow widths can still reach every thumbnail. */}
+                than one view. The strip is `shrink-0` so it always
+                paints below the cover at its natural height. The
+                inner padding (`px-1 py-1`) leaves room for the active
+                button's outward `ring-2` box-shadow so the gold
+                outline does not get clipped at the strip's edges
+                (which used to happen on the first / last thumbnails
+                under `overflow-x-auto` with no padding). */}
             {hasGallery ? (
               <div
-                className="flex w-full max-w-full items-center gap-2 overflow-x-auto pb-1 sm:max-w-[60vh]"
+                className="flex w-full max-w-full shrink-0 items-center gap-2 overflow-x-auto px-1 py-1"
                 role="tablist"
                 aria-label={`${record.title} alternate views`}
                 data-testid="zoom-view-thumbnails"
@@ -493,7 +501,7 @@ function ZoomViewOverlay({
                       aria-selected={isActive}
                       aria-label={`View ${idx + 1} of ${images.length}`}
                       onClick={() => setActiveIndex(idx)}
-                      className={`relative aspect-[3/4] h-16 flex-shrink-0 overflow-hidden rounded-sm transition-all sm:h-20 ${
+                      className={`relative aspect-[3/4] h-14 flex-shrink-0 overflow-hidden rounded-sm transition-all sm:h-16 ${
                         isActive
                           ? "ring-2 ring-amber-300 shadow-md"
                           : "ring-1 ring-white/20 hover:ring-amber-200/60"
@@ -516,9 +524,12 @@ function ZoomViewOverlay({
             ) : null}
           </motion.div>
 
-          {/* Metadata surface (Req 3.1, 3.8, 3.10) */}
+          {/* Metadata surface (Req 3.1, 3.8, 3.10). On mobile this
+              column sits below the image and is constrained so the
+              whole overlay still fits without scrolling. On desktop
+              it sits to the right of the image. */}
           <motion.section
-            className="flex max-w-md flex-col gap-3 text-gallery-fg"
+            className="flex w-full max-w-md shrink-0 flex-col gap-3 overflow-y-auto text-gallery-fg sm:my-auto sm:max-h-full"
             data-testid="zoom-view-metadata"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -532,21 +543,16 @@ function ZoomViewOverlay({
               {record.title}
             </h2>
             {/*
-              Two layouts:
+              Single layout for both records:
 
-                - "designer" record: a person, not a dress. The
-                  description carries the role plus the bio in a single
-                  paragraph (the catalogue stores no `medium` for this
-                  record). Date is intentionally hidden — it has no
-                  meaning for a profile card.
+                - "designer" record carries its role + bio in
+                  `description` (the catalogue stores no `medium`).
+                - dresses display only the title; descriptions are
+                  empty in v1, so the description block elides.
 
-                - all other records: dresses. The Sketch_Record `date`
-                  and `medium` fields are kept on the data layer for
-                  future use (cataloguing, sort orders) but the visitor-
-                  facing zoom shows only the title and the description.
-                  Records with an empty description (the v1 default for
-                  every dress) drop the description block entirely so
-                  the metadata column collapses to just the title.
+              The Sketch_Record `date` and `medium` fields stay on the
+              data layer for future cataloguing or sort orders but are
+              no longer painted on the zoom panel.
             */}
             {hasDescription ? (
               <p

@@ -60,7 +60,7 @@ import * as THREE from "three";
 import { sketches } from "@/lib/sketches";
 
 import { MetadataPanel } from "./MetadataPanel";
-import { placeFrames, type RoomDimensions } from "./placement";
+import { placeFrames, type RoomDimensions, type WallPose } from "./placement";
 import { useGalleryStore } from "./store/useGalleryStore";
 import { PostFx } from "./PostFx";
 import {
@@ -76,13 +76,16 @@ import { SketchFrame } from "./SketchFrame";
 
 /**
  * Interior dimensions of the gallery room in world units (≈ metres).
- * Width × height × depth = 18 × 4 × 18. The room was widened from the
- * original 12 × 4 × 12 footprint so the full GP Fashion 22-dress catalogue
- * fits comfortably along the four interior walls (default placement holds
- * roughly 8 frames per 18m wall, leaving headroom on each wall).
+ * Width × height × depth = 11 × 4 × 18. The room shares its 11m width
+ * with the foyer chamber so the side walls of the foyer continue
+ * cleanly into the gallery side walls — the visitor sees one
+ * uninterrupted 11m-wide corridor from the showroom front through to
+ * the back gallery wall. Depth stays at 18m so all 23 catalogue
+ * records (1 designer + 22 dresses) fit along the three usable walls
+ * with no overflow.
  */
 export const ROOM: RoomDimensions = {
-  width: 18,
+  width: 11,
   height: 4,
   depth: 18,
 };
@@ -91,21 +94,24 @@ export const ROOM: RoomDimensions = {
  * Deterministic spawn point and orientation (Requirement 1.8).
  *
  * The Visitor enters the foyer chamber attached to the gallery's south
- * wall (which sits at +z) and faces the gallery doorway.
+ * wall (which sits at +z) and faces the gallery doorway. The spawn
+ * sits 3m back from the doorway plane (z=9) so the visitor can already
+ * see the GP Fashion sign and the closed glass doors clearly without
+ * having to walk forward through a long foyer first.
  *
  * In three.js the default camera looks down −z, so `yaw = 0` keeps the
  * forward vector pointing toward −z — which from a foyer position at
- * `z = 13` aims through the doorway at `z = +9` and on into the gallery
- * proper. Pitch = 0 keeps the camera level. Eye height of 1.6m is a
- * standing-adult default and matches the mid-wall frame anchor at
- * `room.height / 2`.
+ * `z = 12` aims through the doorway at `z = +9` and on into the
+ * gallery proper. Pitch = 0 keeps the camera level. Eye height of
+ * 1.6m is a standing-adult default and matches the mid-wall frame
+ * anchor at `room.height / 2`.
  *
  * Exported as a frozen object so consumers (controls subtree, future
  * XR session, tests) can read the same canonical value without being
  * able to mutate it.
  */
 export const SPAWN = Object.freeze({
-  position: [0, 1.6, 18] as const,
+  position: [0, 1.6, 12] as const,
   yaw: 0,
   pitch: 0,
 });
@@ -126,10 +132,12 @@ const DOORWAY_HEIGHT = 3;
 
 /**
  * Camera target the entry-walk auto-walks the visitor to once the
- * "Step inside" button is pressed. Sits a couple of metres past the
- * doorway, inside the gallery proper.
+ * "Step inside" button is pressed. Sits about 2m past the doorway
+ * (z=+9), inside the gallery proper. The shorter walk-in keeps the
+ * cinematic transition under a second so the visitor isn't watching
+ * an idle camera glide.
  */
-export const ENTRY_TARGET_Z = -2;
+export const ENTRY_TARGET_Z = 7;
 
 // ----------------------------------------------------------------------
 // Wall colliders (Requirement 1.6)
@@ -226,36 +234,30 @@ export const GALLERY_COLLIDERS: ReadonlyArray<AABB> = [
 const LIGHT_BUDGET = 12;
 
 /**
- * Wall spot-light placement: each wall gets one spot whose origin sits
- * on the room's central axis facing the wall, aimed at the wall's
- * mid-line. The wide cone angle (≈ 70°) ensures the light reaches
- * every Sketch_Frame on that wall — a 12m wall under default placement
- * holds at most 5 frames spaced 2m apart, all within the cone of a
- * single spot positioned 4m from the wall. With one spot per wall the
- * total live-light count is `1 ambient + 1 hemisphere + 4 spots = 6`,
- * leaving two slots of headroom under the Req 9.4 cap.
+ * Ceiling fixture placements — a balanced 2×2 grid across the 11×18
+ * gallery footprint at quarter-widths (x=±2.75) and quarter-depths
+ * (z=±4.5), so each fixture sits roughly at the centre of one
+ * quadrant. The fixtures are purely cosmetic (small brass-cylinder
+ * housings with a glowing bulb disc); the field name preserves the
+ * historical "spot light" type because the array shape is what
+ * `<CeilingFixture/>` consumes — no real `<spotLight/>` is emitted
+ * any more. The `target` field is unused but kept for shape parity
+ * with the original spec.
  */
 type SpotLightSpec = {
   /** Stable id used as the React key. */
   id: string;
-  /** World-space spot position (light source). */
+  /** World-space fixture position (just below the ceiling plane). */
   position: [number, number, number];
-  /** World-space target for the light's `target` object. */
+  /** World-space target — unused now that the spotlights are gone. */
   target: [number, number, number];
 };
 
 const SPOT_LIGHT_SPECS: ReadonlyArray<SpotLightSpec> = [
-  // South wall (z = +9, frames face −z): light sits in front of the
-  // wall in the room interior, aimed back at the wall mid-line.
-  // Targets sit on the frame canvases (y = 2.0, the centre of each
-  // 1.4m frame on a wall of height 4m); the spotlight cone is narrow
-  // enough that the bottom edge of the cone clips the wall well
-  // above the floor, so there's no bright pool of light on the floor
-  // in front of each wall.
-  { id: "spot-south", position: [0, 3.4, 4.5], target: [0, 2.0, 9] },
-  { id: "spot-west", position: [-4.5, 3.4, 0], target: [-9, 2.0, 0] },
-  { id: "spot-north", position: [0, 3.4, -4.5], target: [0, 2.0, -9] },
-  { id: "spot-east", position: [4.5, 3.4, 0], target: [9, 2.0, 0] },
+  { id: "fixture-fl", position: [-2.75, 3.4, 4.5], target: [-2.75, 0, 4.5] },
+  { id: "fixture-fr", position: [2.75, 3.4, 4.5], target: [2.75, 0, 4.5] },
+  { id: "fixture-bl", position: [-2.75, 3.4, -4.5], target: [-2.75, 0, -4.5] },
+  { id: "fixture-br", position: [2.75, 3.4, -4.5], target: [2.75, 0, -4.5] },
 ];
 
 /** Compile-time invariant: declared light count fits the Req 9.4 budget.
@@ -296,8 +298,15 @@ export function WalkthroughScene() {
   // is a module-level `ReadonlyArray<SketchRecord>` so this useMemo
   // collapses to a single computation per scene mount in practice.
   // Skip the south wall — that's where the entrance doorway is cut.
+  // Reduced corner margin to 0.3m so the 23-record catalogue (1
+  // designer + 22 dresses) fits on the three usable walls of the
+  // narrowed 11×18 footprint without overflow.
   const wallPoses = useMemo(
-    () => placeFrames(sketches, ROOM, { skipSouthWall: true }),
+    () =>
+      placeFrames(sketches, ROOM, {
+        skipSouthWall: true,
+        cornerMargin: 0.3,
+      }),
     [],
   );
 
@@ -496,14 +505,31 @@ export function WalkthroughScene() {
         />
       ))}
 
-      {sketches.map((record, i) => (
-        <MetadataPanel
-          key={`panel-${record.id}`}
-          record={record}
-          wallPose={wallPoses[i]}
-          index={i}
-        />
-      ))}
+      {/* Designer plaque (Req 14.2 extension) — a small brass-on-wood
+          legend mounted just above the first frame in the catalogue
+          (the designer's portrait). Reads "ABOUT THE DESIGNER" so
+          visitors recognise this isn't another dress and know to
+          click for the bio. The plaque is purely cosmetic 3D
+          geometry; clicking the underlying frame still opens the
+          existing Zoom_View. */}
+      {sketches[0]?.id === "designer" ? (
+        <DesignerPlaque wallPose={wallPoses[0]} />
+      ) : null}
+
+      {sketches.map((record, i) =>
+        // Skip the dress-style metadata caption for the designer
+        // record — the new <DesignerPlaque/> takes its place above
+        // the frame, so a "Style 23 — 2024-01-01" tag below the
+        // portrait would just be confusing.
+        record.id === "designer" ? null : (
+          <MetadataPanel
+            key={`panel-${record.id}`}
+            record={record}
+            wallPose={wallPoses[i]}
+            index={i}
+          />
+        ),
+      )}
 
       {/* Proximity emphasis driver (Req 2.5, 2.6). */}
       <ProximityHighlighter frames={proximityFrames} />
@@ -791,7 +817,135 @@ function FoyerTrim({
   );
 }
 
-export default WalkthroughScene;
+/**
+ * DesignerPlaque — a small "ABOUT THE DESIGNER" sign mounted on the
+ * wall just above the designer's portrait frame, so visitors immediately
+ * recognise the first artwork as a profile card rather than another
+ * dress.
+ *
+ * Layout (inside a `<group>` anchored at the same wall pose as the
+ * designer's `<SketchFrame/>`, and rotated so the plaque's local +Z
+ * basis vector points into the room — same yaw convention as the
+ * frame and the metadata panel):
+ *
+ *   - Wood backing: a thin walnut-toned box.
+ *   - Brass border: four thin gilded slabs framing the wood face.
+ *   - Brass letters: extruded `<Text3D>` reading "ABOUT THE DESIGNER".
+ *
+ * The plaque sits directly above the frame, vertically offset by
+ * `framing.height/2 + plaque.height/2 + gap`, so it reads as a
+ * museum-style identification sign hung over the artwork. The
+ * underlying frame still handles all interaction (click → Zoom_View,
+ * proximity highlight, etc.); this component is purely cosmetic.
+ */
+function DesignerPlaque({ wallPose }: { wallPose: WallPose }) {
+  const yaw = useMemo(() => Math.atan2(wallPose.normal[0], wallPose.normal[2]), [
+    wallPose.normal,
+  ]);
+  const plaqueWidth = 1.1;
+  const plaqueHeight = 0.22;
+  const plaqueDepth = 0.04;
+  // Sit the plaque above the frame: the frame is 1.4m tall centred on
+  // the wall pose, so its top edge is +0.7. We add a small gap and
+  // half the plaque height so the plaque's bottom edge sits 0.04m
+  // above the frame's top.
+  const yOffset = 0.7 + plaqueHeight / 2 + 0.04;
+  const borderThickness = 0.018;
+  const borderDepth = 0.012;
+
+  return (
+    <group
+      position={[
+        wallPose.position[0],
+        wallPose.position[1] + yOffset,
+        wallPose.position[2],
+      ]}
+      rotation={[0, yaw, 0]}
+      data-vfg-designer-plaque=""
+    >
+      {/* Wood backing — same warm walnut as the frame moulding so the
+          plaque reads as part of the same set. */}
+      <mesh>
+        <boxGeometry args={[plaqueWidth, plaqueHeight, plaqueDepth]} />
+        <meshPhysicalMaterial
+          color="#3a2418"
+          roughness={0.35}
+          metalness={0.15}
+          clearcoat={0.6}
+          clearcoatRoughness={0.25}
+        />
+      </mesh>
+
+      {/* Brass border on the front face — four thin slabs framing the
+          plaque face. Sit slightly proud of the wood so the bevel
+          catches the ambient/hemisphere lights. */}
+      {(() => {
+        const innerW = plaqueWidth - 2 * borderThickness;
+        const innerH = plaqueHeight - 2 * borderThickness;
+        const z = plaqueDepth / 2 + borderDepth / 2;
+        const brass = (
+          <meshPhysicalMaterial
+            color="#caa260"
+            roughness={0.3}
+            metalness={0.9}
+            emissive="#3a2a0c"
+            emissiveIntensity={0.25}
+          />
+        );
+        return (
+          <>
+            <mesh position={[0, plaqueHeight / 2 - borderThickness / 2, z]}>
+              <boxGeometry args={[plaqueWidth, borderThickness, borderDepth]} />
+              {brass}
+            </mesh>
+            <mesh position={[0, -(plaqueHeight / 2 - borderThickness / 2), z]}>
+              <boxGeometry args={[plaqueWidth, borderThickness, borderDepth]} />
+              {brass}
+            </mesh>
+            <mesh position={[-(plaqueWidth / 2 - borderThickness / 2), 0, z]}>
+              <boxGeometry args={[borderThickness, innerH, borderDepth]} />
+              {brass}
+            </mesh>
+            <mesh position={[plaqueWidth / 2 - borderThickness / 2, 0, z]}>
+              <boxGeometry args={[borderThickness, innerH, borderDepth]} />
+              {brass}
+            </mesh>
+          </>
+        );
+      })()}
+
+      {/* "ABOUT THE DESIGNER" — extruded brass letters centred on the
+          plaque face. `<Center>` measures the resulting bounding box
+          and offsets the geometry so the parent group's origin sits
+          at the centre of the text. */}
+      <group position={[0, 0, plaqueDepth / 2 + 0.014]}>
+        <Center>
+          <Text3D
+            font="/fonts/helvetiker_bold.typeface.json"
+            size={0.1}
+            height={0.018}
+            curveSegments={6}
+            bevelEnabled
+            bevelThickness={0.004}
+            bevelSize={0.003}
+            bevelOffset={0}
+            bevelSegments={2}
+            letterSpacing={0.04}
+          >
+            ABOUT THE DESIGNER
+            <meshPhysicalMaterial
+              color="#d4a04a"
+              roughness={0.3}
+              metalness={0.9}
+              emissive="#5a3e10"
+              emissiveIntensity={0.5}
+            />
+          </Text3D>
+        </Center>
+      </group>
+    </group>
+  );
+}
 
 /**
  * SouthWallWithDoorway — the boutique facade as seen from the foyer
