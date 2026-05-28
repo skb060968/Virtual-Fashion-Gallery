@@ -247,13 +247,15 @@ type SpotLightSpec = {
 const SPOT_LIGHT_SPECS: ReadonlyArray<SpotLightSpec> = [
   // South wall (z = +9, frames face −z): light sits in front of the
   // wall in the room interior, aimed back at the wall mid-line.
-  { id: "spot-south", position: [0, 3.4, 3.0], target: [0, 2.0, 9] },
-  // West wall (x = −9, frames face +x).
-  { id: "spot-west", position: [-3.0, 3.4, 0], target: [-9, 2.0, 0] },
-  // North wall (z = −9, frames face +z).
-  { id: "spot-north", position: [0, 3.4, -3.0], target: [0, 2.0, -9] },
-  // East wall (x = +9, frames face −x).
-  { id: "spot-east", position: [3.0, 3.4, 0], target: [9, 2.0, 0] },
+  // Targets sit on the frame canvases (y = 2.0, the centre of each
+  // 1.4m frame on a wall of height 4m); the spotlight cone is narrow
+  // enough that the bottom edge of the cone clips the wall well
+  // above the floor, so there's no bright pool of light on the floor
+  // in front of each wall.
+  { id: "spot-south", position: [0, 3.4, 4.5], target: [0, 2.0, 9] },
+  { id: "spot-west", position: [-4.5, 3.4, 0], target: [-9, 2.0, 0] },
+  { id: "spot-north", position: [0, 3.4, -4.5], target: [0, 2.0, -9] },
+  { id: "spot-east", position: [4.5, 3.4, 0], target: [9, 2.0, 0] },
 ];
 
 /** Compile-time invariant: declared light count fits the Req 9.4 budget. */
@@ -501,11 +503,11 @@ function SpotLightForWall({ spec }: { spec: SpotLightSpec }) {
 
       <spotLight
         position={spec.position}
-        angle={Math.PI * 0.22}
+        angle={Math.PI * 0.18}
         penumbra={0.5}
         decay={1.0}
         distance={28}
-        intensity={9}
+        intensity={11}
         color="#fff5dd"
         // Lights are computed real-time but do not cast shadows in v1: the
         // matte gallery walls absorb most direct light, and disabling
@@ -785,30 +787,30 @@ function FoyerChamber() {
         />
       </mesh>
 
-      {/* Lobby fill light — warm amber point light suspended at
-          mid-room height, intensity tuned low and `distance` capped
-          so its falloff dies before it can leak through the doorway
-          and bleach the gallery ceiling. */}
+      {/* Lobby fill light — warm amber point light suspended just
+          below the ceiling. The gallery's spotlight cones are narrow
+          enough that this fixture's glow doesn't bleed through the
+          doorway and create a visible pool on the gallery ceiling. */}
       <pointLight
-        position={[0, 2.4, z0 + FOYER_DEPTH / 2]}
-        intensity={0.9}
+        position={[0, ROOM.height - 0.4, z0 + FOYER_DEPTH / 2]}
+        intensity={1.2}
+        distance={FOYER_DEPTH * 1.6}
+        decay={2}
+        color="#ffd9a3"
+      />
+      <pointLight
+        position={[-halfFoyerW + 1.5, 2.6, z0 + FOYER_DEPTH * 0.7]}
+        intensity={0.7}
         distance={6}
         decay={2}
-        color="#ffe1ad"
+        color="#ffc98a"
       />
       <pointLight
-        position={[-halfFoyerW + 1.0, 2.2, z0 + FOYER_DEPTH * 0.7]}
-        intensity={0.5}
-        distance={4}
+        position={[halfFoyerW - 1.5, 2.6, z0 + FOYER_DEPTH * 0.7]}
+        intensity={0.7}
+        distance={6}
         decay={2}
-        color="#ffd9a3"
-      />
-      <pointLight
-        position={[halfFoyerW - 1.0, 2.2, z0 + FOYER_DEPTH * 0.7]}
-        intensity={0.5}
-        distance={4}
-        decay={2}
-        color="#ffd9a3"
+        color="#ffc98a"
       />
 
       {/* Sliding glass doors filling the doorway. */}

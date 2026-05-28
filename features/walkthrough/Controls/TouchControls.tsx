@@ -10,19 +10,17 @@
  *      sensitivity ROTATE_SENSITIVITY in [0.002, 0.01] rad/CSS-pixel
  *      (Req 1.4). Pitch is clamped to +/-1.5533 rad after every delta
  *      (Req 1.7).
- *   2. Two-finger vertical drag on the canvas -> translate forward
- *      (fingers move up) / backward (fingers move down) at speed
- *      TRANSLATE_SPEED in [1.5, 3.0] units/sec (Req 1.5). The mapping
- *      from CSS-pixel deflection to {-1,+1} input axis uses
- *      TWO_FINGER_FULL_DEFLECTION_PX so the produced velocity magnitude
- *      stays inside the spec range (Property 11).
- *   3. On-screen joystick (Tailwind-positioned absolute <div> in the
- *      bottom-left) -> translate forward/back/left/right at the same
- *      TRANSLATE_SPEED (Req 1.5). The joystick is rendered to
- *      document.body via React's createPortal so it lives outside the
- *      R3F reconciler.
- *   4. All translation is passed through Collisions.resolveMotion
+ *   2. On-screen joystick (Tailwind-positioned absolute <div> in the
+ *      bottom-left) -> translate forward/back/left/right at speed
+ *      TRANSLATE_SPEED in [1.5, 3.0] units/sec (Req 1.5). The joystick
+ *      is rendered to document.body via React's createPortal so it
+ *      lives outside the R3F reconciler.
+ *   3. All translation is passed through Collisions.resolveMotion
  *      against the supplied colliders (Req 1.6).
+ *
+ * Multi-finger gestures (e.g. pinch-zoom or two-finger vertical drag)
+ * are intentionally not consumed by this component. Translation is
+ * driven exclusively by the on-screen joystick on touch devices.
  *
  * Long-press handling:
  *   - Long-press on a sketch surface (Sketch_Frame, Metadata_Panel,
@@ -108,14 +106,6 @@ const PITCH_LIMIT = 1.5533;
 // Tunables
 // ---------------------------------------------------------------------------
 
-/**
- * Two-finger vertical deflection (CSS-pixels) that maps to a full-speed
- * forward/back input. Smaller deflections produce a proportionally smaller
- * input axis value; larger ones are clamped to +/-1 so the resulting velocity
- * magnitude never escapes [TRANSLATE_SPEED_MIN, TRANSLATE_SPEED_MAX].
- */
-const TWO_FINGER_FULL_DEFLECTION_PX = 80;
-
 /** Joystick visible diameter and knob radius in CSS-pixels. */
 const JOYSTICK_BASE_SIZE_PX = 96;
 const JOYSTICK_KNOB_SIZE_PX = 36;
@@ -155,20 +145,6 @@ type CanvasTouchState = {
   rotateDxPx: number;
   /** Accumulated pitch delta in raw CSS-pixels (consumed by useFrame). */
   rotateDyPx: number;
-  /**
-   * Forward/back input axis from the active two-finger gesture, in
-   * [-1, +1]. +1 == forward (fingers moved up), -1 == backward.
-   * Updated continuously while two fingers are down; reset to 0 when
-   * either finger lifts.
-   */
-  twoFingerAxis: number;
-  /**
-   * y-coordinate the two-finger gesture started at (the average of
-   * both pointers at the moment the second pointer joined). Used so
-   * "vertical drag" is measured against gesture origin, not against
-   * the most recent move.
-   */
-  twoFingerStartY: number | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -186,13 +162,11 @@ export function TouchControls({
     camera.rotation.order = "YXZ";
   }, [camera]);
 
-  // ---- Canvas pointer state (rotate + two-finger translate) ---------------
+  // ---- Canvas pointer state (rotate only) ---------------------------------
   const touchStateRef = useRef<CanvasTouchState>({
     pointers: new Map(),
     rotateDxPx: 0,
     rotateDyPx: 0,
-    twoFingerAxis: 0,
-    twoFingerStartY: null,
   });
 
   // -------------------------------------------------------------------------
@@ -217,13 +191,6 @@ export function TouchControls({
       // Capture the pointer so we keep getting move/up events even if
       // the finger drifts off the canvas.
       el.setPointerCapture?.(e.pointerId);
-      // Mark the start of a two-finger gesture as soon as the second
-      // pointer joins.
-      if (ts.pointers.size === 2) {
-        const ys = Array.from(ts.pointers.values()).map((p) => p.y);
-        ts.twoFingerStartY = (ys[0] + ys[1]) / 2;
-        ts.twoFingerAxis = 0;
-      }
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -237,26 +204,13 @@ export function TouchControls({
       prev.x = e.clientX;
       prev.y = e.clientY;
 
-      const count = ts.pointers.size;
-      if (count === 1) {
-        // Single-finger drag -> accumulate rotation delta in CSS-pixels.
+      // Single-finger drag → rotation. Multi-finger gestures are
+      // intentionally not consumed by this component (they used to
+      // drive a two-finger walk; that was removed because the
+      // joystick already handles touch translation).
+      if (ts.pointers.size === 1) {
         ts.rotateDxPx += dx;
         ts.rotateDyPx += dy;
-      } else if (count >= 2 && ts.twoFingerStartY !== null) {
-        // Two-finger vertical drag -> translation axis.
-        // Use the running average of all currently-down pointers so the
-        // gesture is stable even if one finger moves and the other doesn't.
-        let sumY = 0;
-        for (const p of ts.pointers.values()) sumY += p.y;
-        const avgY = sumY / count;
-        // Sign convention: fingers moving UP (avgY decreases) -> forward.
-        const dyFromStart = ts.twoFingerStartY - avgY;
-        const axis = clamp(
-          dyFromStart / TWO_FINGER_FULL_DEFLECTION_PX,
-          -1,
-          1,
-        );
-        ts.twoFingerAxis = axis;
       }
     };
 
@@ -265,10 +219,6 @@ export function TouchControls({
       const ts = touchStateRef.current;
       ts.pointers.delete(e.pointerId);
       el.releasePointerCapture?.(e.pointerId);
-      if (ts.pointers.size < 2) {
-        ts.twoFingerAxis = 0;
-        ts.twoFingerStartY = null;
-      }
     };
 
     el.addEventListener("pointerdown", onPointerDown);
@@ -327,18 +277,16 @@ export function TouchControls({
     }
 
     // ---- Translation --------------------------------------------------------
-    // Combine the on-screen joystick axis (written from <TouchJoystick/>
-    // in the DOM tree) and the two-finger forward/back axis. Both
-    // contribute to the same forward/back component; the joystick also
-    // drives strafe.
+    // Translation is driven exclusively by the on-screen joystick (the
+    // DOM-side <TouchJoystick/> writes the axis into the shared module
+    // ref). Multi-finger canvas gestures are intentionally not consumed.
     const joy = getSharedJoystickAxis();
     let inputRight = joy.x;
-    let inputForward = joy.y + ts.twoFingerAxis;
+    let inputForward = joy.y;
 
-    // Normalise so the combined input magnitude does not exceed 1. This
-    // is what keeps the resulting velocity magnitude inside
-    // [TRANSLATE_SPEED_MIN, TRANSLATE_SPEED_MAX] regardless of which
-    // input modality contributes (Property 11).
+    // Normalise so the input magnitude does not exceed 1. This keeps
+    // the resulting velocity magnitude inside [TRANSLATE_SPEED_MIN,
+    // TRANSLATE_SPEED_MAX] (Property 11).
     const mag = Math.hypot(inputRight, inputForward);
     if (mag > 1) {
       inputRight /= mag;
@@ -348,7 +296,7 @@ export function TouchControls({
     if (Math.abs(inputRight) > 1e-6 || Math.abs(inputForward) > 1e-6) {
       // Compute world-space velocity from camera yaw only (pitch does
       // not affect ground-plane translation; this matches the
-      // KeyboardControls convention referenced by Property 11).
+      // WheelControls convention referenced by Property 11).
       const yaw = camera.rotation.y;
       const sinY = Math.sin(yaw);
       const cosY = Math.cos(yaw);

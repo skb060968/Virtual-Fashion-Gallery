@@ -243,6 +243,15 @@ export function SketchFrame({
   const openZoomForRecord = useCallback(() => {
     const state = useGalleryStore.getState();
     if (state.zoomOpen) return;
+    // Activation gate (Req 3.3 + foyer entry sequence): only open the
+    // Zoom_View once the visitor has walked into the gallery (entry
+    // stage "inside") AND is close enough to this specific frame for
+    // the proximity highlighter to have marked it focused (within
+    // 1.5m, Req 2.5 / 2.6). This prevents a click on a frame that is
+    // visible through the still-closed glass doors from popping the
+    // zoom overlay over the foyer entry sequence.
+    if (state.entryStage !== "inside") return;
+    if (state.focusedFrameId !== record.id) return;
     state.openZoom(record.id, captureSnapshot());
   }, [record.id, captureSnapshot]);
 
@@ -322,10 +331,29 @@ export function SketchFrame({
           canvas plane so taps that land on the matte border still open the
           Zoom_View. `transparent + opacity:0` (rather than `visible={false}`)
           keeps the mesh raycastable while invisible — the default raycaster
-          skips objects whose `visible` is `false`. */}
+          skips objects whose `visible` is `false`.
+
+          The pointer cursor is only set to "pointer" while this frame is
+          the proximity-focused one inside the gallery, so far frames /
+          frames seen through the still-closed foyer doors don't advertise
+          themselves as clickable when `openZoomForRecord` would no-op. */}
       <mesh
         position={[0, 0, COLLIDER_DEPTH_OFFSET]}
         onClick={handleColliderSelect}
+        onPointerOver={(event) => {
+          if (!isFocused) return;
+          if (useGalleryStore.getState().entryStage !== "inside") return;
+          event.stopPropagation();
+          if (typeof document !== "undefined") {
+            document.body.style.cursor = "pointer";
+          }
+        }}
+        onPointerOut={(event) => {
+          event.stopPropagation();
+          if (typeof document !== "undefined") {
+            document.body.style.cursor = "";
+          }
+        }}
         data-record-collider-id={record.id}
       >
         <planeGeometry args={[FRAME_WIDTH, FRAME_HEIGHT]} />

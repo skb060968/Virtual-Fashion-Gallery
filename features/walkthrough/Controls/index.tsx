@@ -8,9 +8,10 @@
  * 5.4 of the virtual-fashion-gallery spec:
  *
  *   - `(pointer: fine) and (hover: hover)`  ⇒  fine    (Req 5.3)
- *       Mounts <KeyboardControls/> + <PointerLookControls/>; the touch
+ *       Mounts <WheelControls/> + <PointerLookControls/>; the touch
  *       on-screen joystick from Req 1.5 is NOT rendered, and the
  *       PointerLookControls overlay drives the click-to-look prompt.
+ *       Forward / backward translation is driven by the mouse wheel.
  *
  *   - `(pointer: coarse) and (hover: none)` ⇒  coarse  (Req 5.2)
  *       Mounts <TouchControls/> only; the keyboard-and-mouse pointer-lock
@@ -47,16 +48,16 @@
  * components. Each control component already returns either `null` or a
  * portal/Html overlay, so this component contributes no extra DOM of its
  * own. It must be mounted INSIDE the R3F <Canvas> tree because the
- * KeyboardControls / TouchControls / PointerLookControls all depend on
+ * WheelControls / TouchControls / PointerLookControls all depend on
  * `useThree` for the camera and renderer.
  */
 
 import { useEffect, useState, type ReactElement } from "react";
 
 import type { AABB } from "./Collisions";
-import { KeyboardControls } from "./KeyboardControls";
 import { PointerLookControls } from "./PointerLookControls";
 import { TouchControls } from "./TouchControls";
+import { WheelControls } from "./WheelControls";
 
 // ---------------------------------------------------------------------------
 // Media query strings
@@ -201,17 +202,17 @@ export function Controls({ colliders = [] }: ControlsProps): ReactElement {
   if (mode === "hybrid") {
     return (
       <>
-        <KeyboardControls colliders={colliders} />
+        <WheelControls colliders={colliders} />
         <PointerLookControls />
         <TouchControls colliders={colliders} />
       </>
     );
   }
 
-  // Default / "fine": keyboard + pointer-lock with drag-to-look fallback.
+  // Default / "fine": mouse wheel walk + pointer-lock with drag-to-look fallback.
   return (
     <>
-      <KeyboardControls colliders={colliders} />
+      <WheelControls colliders={colliders} />
       <PointerLookControls />
     </>
   );

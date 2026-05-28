@@ -71,10 +71,9 @@ export function EntryOverlay() {
   }, [entryStage]);
 
   // Keyboard shortcut while in foyer: Enter or Space presses the
-  // "Step inside" button without requiring a click. The arrow keys
-  // are intentionally NOT wired here — KeyboardControls already
-  // ignores them while entryStage !== "inside" so they remain free
-  // for the visitor's own walk-in once the doors finish opening.
+  // "Step inside" button without requiring a click. Once entryStage
+  // becomes "inside" the wheel + drag-to-look controls take over;
+  // arrow keys are not wired anywhere on the gallery page.
   useEffect(() => {
     if (entryStage !== "foyer") return;
     const onKey = (e: KeyboardEvent) => {
@@ -138,8 +137,8 @@ export function EntryOverlay() {
         <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-xs text-[var(--gallery-fg)] backdrop-blur-md">
           <span className="font-body">
             {coarse
-              ? "Drag to look · two-finger drag to walk · joystick at bottom-left"
-              : "Drag with mouse to look · WASD / arrows to walk · click a frame to zoom"}
+              ? "Drag to look · joystick at bottom-left to walk"
+              : "Drag with mouse to look · scroll wheel to walk · click a frame to zoom"}
           </span>
           <button
             type="button"
