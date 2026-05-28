@@ -52,7 +52,7 @@
  * no divergence between frame geometry and panel anchoring.
  */
 
-import { Center, Text3D } from "@react-three/drei";
+import { Center, Text3D, useTexture } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -95,15 +95,16 @@ export const ROOM: RoomDimensions = {
  *
  * The Visitor enters the foyer chamber attached to the gallery's south
  * wall (which sits at +z) and faces the gallery doorway. The spawn
- * sits 5m back from the doorway plane (z=9), giving a clear sightline
- * to the entire boutique facade — the GP FASHION signboard above the
- * doorway, the brass-bordered marquee, and the closed glass doors all
- * fit in the visitor's initial field of view without needing to look
- * up or step backward.
+ * sits ~7.5m back from the doorway plane (z=9) — close to the foyer's
+ * far back wall at z=18 with the standard 1m collision clearance —
+ * giving the maximum sightline to the entire boutique facade. The
+ * GP FASHION signboard above the doorway, the brass-bordered marquee,
+ * the closed glass doors, and the surrounding facade panels all fit
+ * comfortably in the visitor's initial field of view.
  *
  * In three.js the default camera looks down −z, so `yaw = 0` keeps the
  * forward vector pointing toward −z — which from a foyer position at
- * `z = 14` aims through the doorway at `z = +9` and on into the
+ * `z = 16.5` aims through the doorway at `z = +9` and on into the
  * gallery proper. Pitch = 0 keeps the camera level. Eye height of
  * 1.6m is a standing-adult default and matches the mid-wall frame
  * anchor at `room.height / 2`.
@@ -113,7 +114,7 @@ export const ROOM: RoomDimensions = {
  * able to mutate it.
  */
 export const SPAWN = Object.freeze({
-  position: [0, 1.6, 14] as const,
+  position: [0, 1.6, 16.5] as const,
   yaw: 0,
   pitch: 0,
 });
@@ -865,16 +866,19 @@ function DesignerPlaque({ wallPose }: { wallPose: WallPose }) {
       rotation={[0, yaw, 0]}
       data-vfg-designer-plaque=""
     >
-      {/* Wood backing — same warm walnut as the frame moulding so the
-          plaque reads as part of the same set. */}
+      {/* Cream face — same painted-board backing the storefront
+          signboard uses, so the plaque visually pairs with the GP
+          FASHION sign over the doorway rather than the dark frame
+          moulding. The emissive is kept low so the plaque doesn't
+          glow under the gallery's ambient + hemisphere lighting. */}
       <mesh>
         <boxGeometry args={[plaqueWidth, plaqueHeight, plaqueDepth]} />
         <meshPhysicalMaterial
-          color="#3a2418"
-          roughness={0.35}
-          metalness={0.15}
-          clearcoat={0.6}
-          clearcoatRoughness={0.25}
+          color="#f5e8c7"
+          roughness={0.5}
+          metalness={0.05}
+          emissive="#5a4a20"
+          emissiveIntensity={0.2}
         />
       </mesh>
 
@@ -946,6 +950,64 @@ function DesignerPlaque({ wallPose }: { wallPose: WallPose }) {
         </Center>
       </group>
     </group>
+  );
+}
+
+/**
+ * FoyerLogo — a flat plane displaying the GP Fashion logo bitmap from
+ * `/public/images/hero/logo.png`, mounted on the foyer's back wall.
+ *
+ * The plane sits a hair in front of the wall plane (z passed in from
+ * the parent slightly less than the wall's z) so it doesn't z-fight
+ * with the painted wall surface, and faces back into the foyer
+ * interior — when the visitor turns around inside the foyer they see
+ * the logo head-on.
+ *
+ * Sizing preserves the texture's intrinsic aspect ratio:
+ *   - Height starts at `targetHeight`.
+ *   - If the resulting width would exceed `maxWidth` (so the logo
+ *     would overflow the back wall horizontally), height is scaled
+ *     down so width clamps at `maxWidth` instead.
+ *
+ * The material uses `meshBasicMaterial` so the logo is shown at its
+ * stored colours regardless of foyer lighting (matching the
+ * Sketch_Frame canvas convention) and `transparent: true` so any
+ * alpha channel in the source PNG is honoured. `toneMapped: false`
+ * keeps the bloom pass from blowing out the logo's whites.
+ */
+function FoyerLogo({
+  position,
+  targetHeight,
+  maxWidth,
+}: {
+  position: [number, number, number];
+  targetHeight: number;
+  maxWidth: number;
+}) {
+  const texture = useTexture("/images/hero/logo.png");
+  const [width, height] = useMemo(() => {
+    const img = texture.image as
+      | { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number }
+      | undefined;
+    const naturalW =
+      img?.naturalWidth ?? img?.width ?? 1;
+    const naturalH =
+      img?.naturalHeight ?? img?.height ?? 1;
+    const aspect = naturalW > 0 && naturalH > 0 ? naturalW / naturalH : 1;
+    let h = targetHeight;
+    let w = h * aspect;
+    if (w > maxWidth) {
+      w = maxWidth;
+      h = w / aspect;
+    }
+    return [w, h];
+  }, [texture, targetHeight, maxWidth]);
+
+  return (
+    <mesh position={position} data-vfg-foyer-logo="">
+      <planeGeometry args={[width, height]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
   );
 }
 
@@ -1321,6 +1383,17 @@ function FoyerChamber() {
           side={THREE.DoubleSide}
         />
       </mesh>
+
+      {/* GP Fashion logo mounted on the foyer back wall, centred and
+          facing into the foyer interior so it greets the visitor on
+          turning around. The component preserves the source image's
+          intrinsic aspect ratio. Suspends until the texture loads;
+          the Canvas's default Suspense fallback covers that branch. */}
+      <FoyerLogo
+        position={[0, wallY, z1 - 0.01]}
+        targetHeight={2.0}
+        maxWidth={FOYER_WIDTH - 1.0}
+      />
 
       {/* Foyer trim — same eggshell baseboard / crown moulding as the
           gallery proper, so the architectural language reads
