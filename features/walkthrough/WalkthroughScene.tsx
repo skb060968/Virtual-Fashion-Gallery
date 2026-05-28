@@ -1013,14 +1013,19 @@ function FoyerLogo({
   }, [texture, targetHeight, maxWidth]);
 
   return (
-    <mesh position={position} data-vfg-foyer-logo="">
+    <mesh
+      position={position}
+      // Rotate 180° around Y so the plane's front face (+Z normal in
+      // local space) ends up pointing toward -z in world space, which
+      // is the direction the visitor faces when looking at the back
+      // wall from inside the foyer. Without this rotation the
+      // visitor sees the plane's back face — which `DoubleSide`
+      // renders by flipping the winding order, so the texture
+      // appears mirrored.
+      rotation={[0, Math.PI, 0]}
+      data-vfg-foyer-logo=""
+    >
       <planeGeometry args={[width, height]} />
-      {/* `side: DoubleSide` so the logo is visible whether the
-          visitor is facing the back wall (looking +z) or sees it
-          through the gallery doorway from the foyer chamber's far
-          end. Default plane geometry only renders +Z normal; the
-          back wall sits behind the spawn point so the visitor's
-          natural turn-around viewing direction is +z. */}
       <meshBasicMaterial
         map={texture}
         transparent
