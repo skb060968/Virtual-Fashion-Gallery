@@ -501,11 +501,11 @@ function SpotLightForWall({ spec }: { spec: SpotLightSpec }) {
 
       <spotLight
         position={spec.position}
-        angle={Math.PI * 0.45}
-        penumbra={0.55}
+        angle={Math.PI * 0.22}
+        penumbra={0.5}
         decay={1.0}
         distance={28}
-        intensity={5.5}
+        intensity={9}
         color="#fff5dd"
         // Lights are computed real-time but do not cast shadows in v1: the
         // matte gallery walls absorb most direct light, and disabling
@@ -609,7 +609,7 @@ function SouthWallWithDoorway() {
       >
         <planeGeometry args={[sideWidth, ROOM.height]} />
         <meshStandardMaterial
-          color="#2a2620"
+          color="#c9b08a"
           roughness={0.7}
           metalness={0.05}
           side={THREE.DoubleSide}
@@ -623,7 +623,7 @@ function SouthWallWithDoorway() {
       >
         <planeGeometry args={[sideWidth, ROOM.height]} />
         <meshStandardMaterial
-          color="#2a2620"
+          color="#c9b08a"
           roughness={0.7}
           metalness={0.05}
           side={THREE.DoubleSide}
@@ -637,7 +637,7 @@ function SouthWallWithDoorway() {
       >
         <planeGeometry args={[DOORWAY_WIDTH, lintelHeight]} />
         <meshStandardMaterial
-          color="#2a2620"
+          color="#c9b08a"
           roughness={0.7}
           metalness={0.05}
           side={THREE.DoubleSide}
@@ -898,12 +898,13 @@ function SlidingGlassDoors() {
   const rightMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const seamMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
 
-  // Closed-door opacity stays at 0.75 throughout: glass-like enough
-  // that the gallery interior shows through as a faint silhouette
-  // from the foyer side, while still reading as a real surface
-  // (rather than a fully open hole) when the doors are shut. The
-  // panels travel into the wall pockets when opening, so visibility
-  // doesn't depend on opacity changes.
+  // Door opacity stays at 0.75 throughout: closed, sliding, fully
+  // open. The visitor sees the gallery interior through the closed
+  // doors as a faint silhouette and the same translucent panel
+  // tucked into the wall pocket once open. The pockets are kept
+  // clear of opaque wall geometry (see `SouthWallWithDoorway` —
+  // the side panels stop short of the doorway-edge + panel-width
+  // line) so an open door doesn't overlap an opaque surface.
   const CLOSED_OPACITY = 0.75;
   const OPEN_OPACITY = 0.75;
 
