@@ -826,7 +826,15 @@ function SouthWallWithDoorway() {
   const signWidth = DOORWAY_WIDTH + 1.4;
   const signHeight = Math.min(lintelHeight - 0.2, 0.85);
   const signDepth = 0.18; // proud of the wall by this much
-  const signFrontZ = z + signDepth; // front face of the signboard
+  // Small air gap between the wall plane and the back of the signboard
+  // body. Without this the box's back face is coplanar with the south-
+  // wall side panels at the sign's left/right overhangs, which causes
+  // GPU z-fighting that reads as the wall "missing" behind the sign
+  // when viewed from inside the gallery.
+  const signStandoff = 0.04;
+  const signBackZ = z + signStandoff;
+  const signCenterZ = signBackZ + signDepth / 2;
+  const signFrontZ = signBackZ + signDepth; // front face of the signboard
   // Centre vertically on the lintel band, biased slightly upward so
   // there's a clear gap between the doorway and the bottom of the sign.
   const signY = DOORWAY_HEIGHT + signHeight / 2 + 0.06;
@@ -886,24 +894,31 @@ function SouthWallWithDoorway() {
 
       {/* Mounting brackets — short cylinder arms from the wall to the
           back of the signboard. Two brackets, near each end of the
-          sign, suggesting the panel is hung off the facade. */}
-      {[-(signWidth / 2 - 0.6), signWidth / 2 - 0.6].map((bx, i) => (
-        <mesh
-          key={`sign-bracket-${i}`}
-          position={[bx, signY + signHeight / 2 - 0.08, z + signDepth / 2]}
-          rotation={[Math.PI / 2, 0, 0]}
-        >
-          <cylinderGeometry args={[0.025, 0.025, signDepth, 12]} />
-          <meshStandardMaterial
-            color="#2a2014"
-            roughness={0.5}
-            metalness={0.6}
-          />
-        </mesh>
-      ))}
+          sign, suggesting the panel is hung off the facade. The
+          bracket length matches `signStandoff + signDepth/2` so the
+          near end sits flush with the wall plane and the far end
+          centres on the back face of the sign body. */}
+      {[-(signWidth / 2 - 0.6), signWidth / 2 - 0.6].map((bx, i) => {
+        const bracketLength = signStandoff + signDepth / 2;
+        const bracketCenterZ = z + bracketLength / 2;
+        return (
+          <mesh
+            key={`sign-bracket-${i}`}
+            position={[bx, signY + signHeight / 2 - 0.08, bracketCenterZ]}
+            rotation={[Math.PI / 2, 0, 0]}
+          >
+            <cylinderGeometry args={[0.025, 0.025, bracketLength, 12]} />
+            <meshStandardMaterial
+              color="#2a2014"
+              roughness={0.5}
+              metalness={0.6}
+            />
+          </mesh>
+        );
+      })}
 
       {/* Sign body — dark backing box that sits proud of the wall. */}
-      <mesh position={[0, signY, z + signDepth / 2]}>
+      <mesh position={[0, signY, signCenterZ]}>
         <boxGeometry args={[signWidth, signHeight, signDepth]} />
         <meshStandardMaterial
           color="#1a1410"
