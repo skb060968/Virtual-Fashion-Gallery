@@ -52,7 +52,7 @@
  * no divergence between frame geometry and panel anchoring.
  */
 
-import { Text3D } from "@react-three/drei";
+import { Center, Text3D } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -435,7 +435,6 @@ export function WalkthroughScene() {
 
       <hemisphereLight
         args={["#fff8e7", "#3a3a45", 0.9]}
-        position={[0, ROOM.height, 0]}
       />
 
       {SPOT_LIGHT_SPECS.map((spec) => (
@@ -666,37 +665,34 @@ function SouthWallWithDoorway() {
       {/* Boutique name as 3D brass letters mounted on the marquee.
           `Text3D` produces real geometry with depth so spotlights
           and the bloom pass treat the letters as physical objects.
-          The parent group centres the text horizontally; vertical
-          centring is approximated by lifting the local origin to
-          half the cap height. */}
+          `<Center>` measures the resulting geometry's bounding box
+          and offsets it so the parent group's origin sits at the
+          centre of the text — that's how the letters end up centred
+          on the marquee plate. */}
       <group position={[0, marqueeY, z + 0.04]}>
-        <Text3D
-          font="/fonts/helvetiker_bold.typeface.json"
-          size={Math.min(marqueeHeight * 0.55, 0.36)}
-          height={0.04}
-          curveSegments={6}
-          bevelEnabled
-          bevelThickness={0.008}
-          bevelSize={0.006}
-          bevelOffset={0}
-          bevelSegments={3}
-          letterSpacing={0.05}
-          // The text geometry's origin is the lower-left of the first
-          // character. We translate it into the centre of the marquee
-          // by hand: roughly -3.0 horizontally for "GP FASHION" at
-          // size 0.36, and -0.13 vertically so it sits visually
-          // centred on the plate.
-          position={[-2.65, -0.18, 0]}
-        >
-          GP FASHION
-          <meshStandardMaterial
-            color="#d4a04a"
-            roughness={0.35}
-            metalness={0.85}
-            emissive="#3a2a0c"
-            emissiveIntensity={0.4}
-          />
-        </Text3D>
+        <Center>
+          <Text3D
+            font="/fonts/helvetiker_bold.typeface.json"
+            size={Math.min(marqueeHeight * 0.55, 0.36)}
+            height={0.04}
+            curveSegments={6}
+            bevelEnabled
+            bevelThickness={0.008}
+            bevelSize={0.006}
+            bevelOffset={0}
+            bevelSegments={3}
+            letterSpacing={0.05}
+          >
+            GP FASHION
+            <meshStandardMaterial
+              color="#d4a04a"
+              roughness={0.35}
+              metalness={0.85}
+              emissive="#3a2a0c"
+              emissiveIntensity={0.4}
+            />
+          </Text3D>
+        </Center>
       </group>
     </group>
   );
@@ -928,13 +924,14 @@ function SlidingGlassDoors() {
   const rightMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const seamMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
 
-  // Closed-door opacity drops to 0.55 so the gallery interior shows
-  // through as a faint silhouette — a real translucent glass door
-  // rather than an opaque panel. Stays semi-transparent throughout
-  // the slide; the panels travel into the wall pockets so visibility
+  // Closed-door opacity stays at 0.75 throughout: glass-like enough
+  // that the gallery interior shows through as a faint silhouette
+  // from the foyer side, while still reading as a real surface
+  // (rather than a fully open hole) when the doors are shut. The
+  // panels travel into the wall pockets when opening, so visibility
   // doesn't depend on opacity changes.
-  const CLOSED_OPACITY = 0.55;
-  const OPEN_OPACITY = 0.55;
+  const CLOSED_OPACITY = 0.75;
+  const OPEN_OPACITY = 0.75;
 
   useFrame((_, dt) => {
     const target = entryStage === "foyer" ? 0 : 1;
