@@ -258,8 +258,11 @@ const SPOT_LIGHT_SPECS: ReadonlyArray<SpotLightSpec> = [
   { id: "spot-east", position: [4.5, 3.4, 0], target: [9, 2.0, 0] },
 ];
 
-/** Compile-time invariant: declared light count fits the Req 9.4 budget. */
-const ACTIVE_LIGHT_COUNT = 1 /* ambient */ + 1 /* hemisphere */ + SPOT_LIGHT_SPECS.length;
+/** Compile-time invariant: declared light count fits the Req 9.4 budget.
+ * Spec entries are kept for ceiling-fixture placement, but they no
+ * longer emit real-time `<spotLight/>` instances — only ambient and
+ * hemisphere are active. */
+const ACTIVE_LIGHT_COUNT = 1 /* ambient */ + 1 /* hemisphere */;
 if (ACTIVE_LIGHT_COUNT > LIGHT_BUDGET) {
   throw new Error(
     `WalkthroughScene: declared light count ${ACTIVE_LIGHT_COUNT} exceeds ` +
@@ -428,19 +431,25 @@ export function WalkthroughScene() {
 
       {/* ----------------------------------------------------------------
           Lighting plan (Req 2.3, 9.4).
-          1 ambient + 1 hemisphere + 4 spots = 6 active lights, ≤ 8.
-          Each spot is aimed at its wall mid-line so every frame on
-          that wall is lit from the visitor's side, satisfying Req 2.3.
+          Soft, even illumination from ambient + hemisphere only. The
+          cosmetic ceiling fixtures (visible bulb discs) read as the
+          light source for visitors; we deliberately don't emit a
+          real `<spotLight/>` from them because a narrow ceiling cone
+          aimed at a wall mid-line spills onto the floor as a bright
+          pool. Frame photos use `meshBasicMaterial`, so they display
+          their stored colours uniformly without needing accent lights.
+          Total active lights: 1 ambient + 1 hemisphere = 2, well under
+          the Req 9.4 cap of 12.
           ---------------------------------------------------------------- */}
 
-      <ambientLight intensity={0.85} />
+      <ambientLight intensity={1.1} />
 
       <hemisphereLight
-        args={["#fff8e7", "#3a3a45", 1.0]}
+        args={["#fff8e7", "#3a3a45", 1.2]}
       />
 
       {SPOT_LIGHT_SPECS.map((spec) => (
-        <SpotLightForWall key={spec.id} spec={spec} />
+        <CeilingFixture key={spec.id} position={spec.position} />
       ))}
 
       {/* ----------------------------------------------------------------
@@ -473,57 +482,6 @@ export function WalkthroughScene() {
 
       {/* Register the THREE.Scene reference for future XR (Req 5.7, 13.1). */}
       <SceneRefBinder scene={scene} />
-    </>
-  );
-}
-
-/**
- * SpotLightForWall — emits one `<spotLight/>` plus its `target` object
- * and parents the target under the spot so R3F applies the world-space
- * `target.position` after the spot has been added to the scene graph.
- *
- * Without this dance the default `SpotLight.target` (a `THREE.Object3D`
- * at the origin) would be used, and the spot would aim at the room
- * centre regardless of `target` props. Mounting the target as a child
- * of the spot side-steps the issue cleanly: r3f attaches the spot's
- * `.target` slot to the inner `<object3D/>`, whose `position` we
- * supply in world units.
- */
-function SpotLightForWall({ spec }: { spec: SpotLightSpec }) {
-  // The angle (≈ 70° half-cone, π * 0.4) and decay (1.0) are tuned so
-  // a single spot reaches every frame on its wall under default
-  // `placeFrames` parameters. The penumbra softens the cone edge so
-  // the bloom pass does not pick up a hard cutoff line.
-  return (
-    <>
-      {/* Visible ceiling fixture sat where the spotlight lives — a
-          dark cylinder housing with a glowing disc inside so the
-          visitor can see "the bulb" producing each beam. */}
-      <CeilingFixture position={spec.position} />
-
-      <spotLight
-        position={spec.position}
-        angle={Math.PI * 0.12}
-        penumbra={0.6}
-        decay={1.0}
-        distance={28}
-        intensity={6}
-        color="#fff5dd"
-        // Lights are computed real-time but do not cast shadows in v1: the
-        // matte gallery walls absorb most direct light, and disabling
-        // shadow maps keeps the per-frame draw-call budget low (Req 9.2,
-        // 9.3, 9.6). Shadowed lights remain a deferred performance lever.
-        castShadow={false}
-      >
-        <object3D
-          // R3F wires this child object into `spotLight.target` via the
-          // `attach` prop. World-space target position is supplied on
-          // the inner object — the spot's parent is the scene root, so
-          // the target's local frame is already world frame.
-          attach="target"
-          position={spec.target}
-        />
-      </spotLight>
     </>
   );
 }
@@ -596,10 +554,19 @@ function SouthWallWithDoorway() {
   const lintelHeight = ROOM.height - DOORWAY_HEIGHT;
   const lintelY = ROOM.height - lintelHeight / 2;
 
-  // Marquee dimensions on the lintel.
-  const marqueeWidth = DOORWAY_WIDTH + 0.6;
-  const marqueeHeight = Math.min(lintelHeight - 0.25, 0.65);
-  const marqueeY = lintelY;
+  // Storefront signboard above the doorway. Sits proud of the facade
+  // (a real box, not a flat decal) with a brass frame, bracket arms back
+  // to the wall, and the boutique name extruded forward off the front
+  // face. Width slightly exceeds the doorway so the sign reads as
+  // "spanning the entrance" the way a real high-street showroom sign
+  // would.
+  const signWidth = DOORWAY_WIDTH + 1.4;
+  const signHeight = Math.min(lintelHeight - 0.2, 0.85);
+  const signDepth = 0.18; // proud of the wall by this much
+  const signFrontZ = z + signDepth; // front face of the signboard
+  // Centre vertically on the lintel band, biased slightly upward so
+  // there's a clear gap between the doorway and the bottom of the sign.
+  const signY = DOORWAY_HEIGHT + signHeight / 2 + 0.06;
 
   return (
     <group data-vfg-room="wall-south-with-doorway">
@@ -646,52 +613,165 @@ function SouthWallWithDoorway() {
         />
       </mesh>
 
-      {/* Marquee plaque — backlit panel with the boutique name. */}
-      <mesh position={[0, marqueeY, z + 0.025]}>
-        <planeGeometry args={[marqueeWidth + 0.14, marqueeHeight + 0.14]} />
+      {/* ----------------------------------------------------------------
+          Showroom signboard above the doorway. A real boxed panel
+          mounted proud of the facade with brass frame edging, two
+          mounting brackets back to the wall, and the boutique name
+          extruded forward off the front face. Reads as a high-street
+          showroom sign rather than a flat marquee splash.
+          ----------------------------------------------------------------- */}
+
+      {/* Mounting brackets — short cylinder arms from the wall to the
+          back of the signboard. Two brackets, near each end of the
+          sign, suggesting the panel is hung off the facade. */}
+      {[-(signWidth / 2 - 0.6), signWidth / 2 - 0.6].map((bx, i) => (
+        <mesh
+          key={`sign-bracket-${i}`}
+          position={[bx, signY + signHeight / 2 - 0.08, z + signDepth / 2]}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <cylinderGeometry args={[0.025, 0.025, signDepth, 12]} />
+          <meshStandardMaterial
+            color="#2a2014"
+            roughness={0.5}
+            metalness={0.6}
+          />
+        </mesh>
+      ))}
+
+      {/* Sign body — dark backing box that sits proud of the wall. */}
+      <mesh position={[0, signY, z + signDepth / 2]}>
+        <boxGeometry args={[signWidth, signHeight, signDepth]} />
         <meshStandardMaterial
-          color="#0a0a0a"
-          roughness={0.45}
-          metalness={0.55}
-          side={THREE.DoubleSide}
+          color="#1a1410"
+          roughness={0.55}
+          metalness={0.4}
         />
       </mesh>
-      <mesh position={[0, marqueeY, z + 0.03]}>
-        <planeGeometry args={[marqueeWidth, marqueeHeight]} />
-        <meshBasicMaterial
-          color="#f6e0a8"
-          toneMapped={false}
-          side={THREE.DoubleSide}
+
+      {/* Brass border frame around the front face — four thin slabs
+          framing the inset signboard panel. */}
+      {(() => {
+        const borderThickness = 0.06;
+        const borderDepth = 0.04;
+        const borderZ = signFrontZ + borderDepth / 2;
+        const innerW = signWidth - borderThickness * 2;
+        const innerH = signHeight - borderThickness * 2;
+        return (
+          <>
+            {/* top border */}
+            <mesh
+              position={[
+                0,
+                signY + signHeight / 2 - borderThickness / 2,
+                borderZ,
+              ]}
+            >
+              <boxGeometry args={[signWidth, borderThickness, borderDepth]} />
+              <meshStandardMaterial
+                color="#c89a48"
+                roughness={0.35}
+                metalness={0.85}
+                emissive="#3a2a0c"
+                emissiveIntensity={0.25}
+              />
+            </mesh>
+            {/* bottom border */}
+            <mesh
+              position={[
+                0,
+                signY - signHeight / 2 + borderThickness / 2,
+                borderZ,
+              ]}
+            >
+              <boxGeometry args={[signWidth, borderThickness, borderDepth]} />
+              <meshStandardMaterial
+                color="#c89a48"
+                roughness={0.35}
+                metalness={0.85}
+                emissive="#3a2a0c"
+                emissiveIntensity={0.25}
+              />
+            </mesh>
+            {/* left border */}
+            <mesh
+              position={[
+                -signWidth / 2 + borderThickness / 2,
+                signY,
+                borderZ,
+              ]}
+            >
+              <boxGeometry args={[borderThickness, innerH, borderDepth]} />
+              <meshStandardMaterial
+                color="#c89a48"
+                roughness={0.35}
+                metalness={0.85}
+                emissive="#3a2a0c"
+                emissiveIntensity={0.25}
+              />
+            </mesh>
+            {/* right border */}
+            <mesh
+              position={[
+                signWidth / 2 - borderThickness / 2,
+                signY,
+                borderZ,
+              ]}
+            >
+              <boxGeometry args={[borderThickness, innerH, borderDepth]} />
+              <meshStandardMaterial
+                color="#c89a48"
+                roughness={0.35}
+                metalness={0.85}
+                emissive="#3a2a0c"
+                emissiveIntensity={0.25}
+              />
+            </mesh>
+          </>
+        );
+      })()}
+
+      {/* Sign face — cream backing inside the brass frame, slightly
+          recessed so the frame casts a small bevel shadow. */}
+      <mesh position={[0, signY, signFrontZ + 0.001]}>
+        <planeGeometry args={[signWidth - 0.12, signHeight - 0.12]} />
+        <meshStandardMaterial
+          color="#f5e8c7"
+          roughness={0.5}
+          metalness={0.05}
+          emissive="#5a4a20"
+          emissiveIntensity={0.25}
         />
       </mesh>
-      {/* Boutique name as 3D brass letters mounted on the marquee.
-          `Text3D` produces real geometry with depth so spotlights
-          and the bloom pass treat the letters as physical objects.
-          `<Center>` measures the resulting geometry's bounding box
-          and offsets it so the parent group's origin sits at the
-          centre of the text — that's how the letters end up centred
-          on the marquee plate. */}
-      <group position={[0, marqueeY, z + 0.04]}>
+
+      {/* Boutique name as 3D brass letters extruded forward off the
+          sign face. `Text3D` produces real geometry so the letters
+          read as physical objects with depth and a subtle bevel.
+          `<Center>` measures the resulting bounding box and offsets
+          it so the parent group's origin sits at the centre of the
+          text — keeping the letters horizontally centred on the
+          sign regardless of the catalogue name. */}
+      <group position={[0, signY, signFrontZ + 0.025]}>
         <Center>
           <Text3D
             font="/fonts/helvetiker_bold.typeface.json"
-            size={Math.min(marqueeHeight * 0.55, 0.36)}
-            height={0.04}
+            size={Math.min(signHeight * 0.5, 0.42)}
+            height={0.06}
             curveSegments={6}
             bevelEnabled
-            bevelThickness={0.008}
-            bevelSize={0.006}
+            bevelThickness={0.012}
+            bevelSize={0.008}
             bevelOffset={0}
             bevelSegments={3}
-            letterSpacing={0.05}
+            letterSpacing={0.06}
           >
             GP FASHION
             <meshStandardMaterial
               color="#d4a04a"
-              roughness={0.35}
-              metalness={0.85}
-              emissive="#3a2a0c"
-              emissiveIntensity={0.4}
+              roughness={0.3}
+              metalness={0.9}
+              emissive="#5a3e10"
+              emissiveIntensity={0.5}
             />
           </Text3D>
         </Center>
