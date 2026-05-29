@@ -52,7 +52,7 @@
  * no divergence between frame geometry and panel anchoring.
  */
 
-import { Center, Text3D, useTexture } from "@react-three/drei";
+import { Center, MeshReflectorMaterial, Text3D, useTexture } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -221,6 +221,16 @@ export const GALLERY_COLLIDERS: ReadonlyArray<AABB> = [
     min: [-HALF_FOYER_W, 0, FOYER_BACK_Z],
     max: [HALF_FOYER_W, ROOM.height, FOYER_BACK_Z + WALL_SLAB],
   },
+
+  // Hero pedestal at the gallery centre (0, 0, 0). The base disc has
+  // radius 0.7m so we wrap an AABB of half-extent 0.7 around the
+  // origin. Height capped at 2.0m so it covers the post and most of
+  // the billboard, blocking the camera from walking through the
+  // display.
+  {
+    min: [-0.7, 0, -0.7],
+    max: [0.7, 2.0, 0.7],
+  },
 ];
 
 // ----------------------------------------------------------------------
@@ -374,16 +384,15 @@ export function WalkthroughScene() {
           the visual focus.
           ---------------------------------------------------------------- */}
 
-      {/* Floor — polished Italian marble tiles. The procedural
-          canvas texture paints a single Calacatta-style cream tile
-          with grout strips on the right and bottom edges; under
-          `THREE.RepeatWrapping` the strips line up edge-to-edge so
-          the floor reads as a regular grid of polished tiles. The
-          PBR characteristics (low roughness, strong clearcoat,
-          warm sheen) give each tile its lacquered look without
-          going mirror-shiny. The matching marble runs continuously
-          from the foyer through the doorway so the entire boutique
-          floor reads as one uninterrupted slab. */}
+      {/* Floor — polished Italian marble tiles with real-time
+          reflections of the room above. The drei
+          `<MeshReflectorMaterial/>` does a half-resolution render of
+          the scene from below the floor and composites it under the
+          tile texture's alpha, producing the soft "ghosted dresses"
+          reflection underfoot that high-end boutique floors actually
+          show. The marble tile texture is layered on top via the
+          `map` prop so the grout grid still reads through the
+          reflection. */}
       <mesh
         position={[0, 0, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -391,15 +400,30 @@ export function WalkthroughScene() {
         data-vfg-room="floor"
       >
         <planeGeometry args={[ROOM.width, ROOM.depth]} />
-        <meshPhysicalMaterial
+        <MeshReflectorMaterial
           map={galleryFloorTexture}
+          // Resolution of the reflection render target. 512 keeps
+          // the GPU cost low; the reflection is heavily blurred
+          // anyway so anything sharper would just be wasted bandwidth.
+          resolution={512}
+          // Mix and blur tune the "polish" feel: a small mix value
+          // keeps the marble's own colour dominant while the room
+          // shows through as a soft ghosted reflection; the blur
+          // softens the mirror so it reads as a polished slab, not
+          // a piece of literal mirror.
+          mixBlur={2}
+          mixStrength={0.55}
+          blur={[300, 100]}
+          minDepthThreshold={0.4}
+          maxDepthThreshold={1.4}
+          depthScale={1.2}
           roughness={0.18}
           metalness={0.04}
-          clearcoat={0.85}
-          clearcoatRoughness={0.12}
-          sheen={0.15}
-          sheenColor="#fff5dd"
-          envMapIntensity={1.1}
+          // Mirror-related material props — keep the existing PBR
+          // characteristics so the floor still reads as the same
+          // polished marble it did before, just with reflections
+          // baked in.
+          reflectorOffset={0.001}
         />
       </mesh>
 
@@ -574,6 +598,15 @@ export function WalkthroughScene() {
 
       {/* Proximity emphasis driver (Req 2.5, 2.6). */}
       <ProximityHighlighter frames={proximityFrames} />
+
+      {/* Hero pedestal — a single lit display plinth at the centre
+          of the gallery floor showing a featured dress as a vertical
+          backlit billboard. Acts as the visitor's focal point on
+          entry: the doorway, the pedestal, and the designer plaque
+          on the back wall line up along the gallery's central
+          axis. Cosmetic only — the plinth is not interactive; the
+          actual dress detail still lives on its wall frame. */}
+      <HeroPedestal />
 
       {/* Post-processing pipeline (Req 2.4, 11.6). */}
       <PostFx />
@@ -1075,6 +1108,123 @@ function FoyerLogo({
 }
 
 /**
+ * HeroPedestal — a single lit display plinth at the centre of the
+ * gallery floor showing one featured dress as a tall vertical
+ * backlit billboard. Reads as a couture display under glass.
+ *
+ * Composition:
+ *   - Stone disc base (radius 0.7m, height 0.15m) in dark polished
+ *     stone, picks up the floor reflection underneath.
+ *   - A faint warm under-glow ring via a slightly-larger emissive
+ *     disc just above the floor — gives the pedestal that "lit
+ *     from below" art-installation feel without emitting any real
+ *     scene light.
+ *   - A vertical billboard plane (1.0m wide × 1.6m tall, raised
+ *     1.2m above the disc) showing the hero dress photo. The
+ *     billboard auto-faces the camera each frame so the visitor
+ *     sees a head-on view from any standing position.
+ *   - A thin gilded post connecting the disc to the billboard so
+ *     the photo doesn't appear to float.
+ *
+ * The hero dress is hard-coded to "1dress" in catalogue order. To
+ * change it, swap the string. The component degrades gracefully if
+ * the texture fails to load — `<Suspense>` upstream covers the
+ * loading branch and the placeholder shows the same "loading…"
+ * tint the wall frames use.
+ */
+function HeroPedestal() {
+  const heroTexture = useTexture("/images/shop/items/1dress/1dress-cover.webp");
+  // Tag the texture sRGB so the dress colours render correctly (same
+  // as the foyer logo and the wall-frame canvas materials).
+  useEffect(() => {
+    heroTexture.colorSpace = THREE.SRGBColorSpace;
+    heroTexture.needsUpdate = true;
+  }, [heroTexture]);
+
+  // Auto-orient the billboard toward the camera each frame so the
+  // visitor always sees the dress photo head-on.
+  const billboardRef = useRef<THREE.Mesh | null>(null);
+  useFrame((state) => {
+    const mesh = billboardRef.current;
+    if (!mesh) return;
+    const cam = state.camera.position;
+    // Face the camera horizontally only; we don't want the billboard
+    // tilting forward when the visitor looks down. The mesh sits at
+    // (0, billboardCenterY, 0) so the relative direction is just
+    // (camX, 0, camZ).
+    mesh.lookAt(cam.x, mesh.position.y, cam.z);
+  });
+
+  // Geometry constants
+  const baseRadius = 0.7;
+  const baseHeight = 0.15;
+  const postHeight = 1.2;
+  const postRadius = 0.025;
+  const billboardWidth = 1.0;
+  const billboardHeight = 1.6;
+  const billboardCenterY = baseHeight + postHeight + billboardHeight / 2;
+
+  return (
+    <group position={[0, 0, 0]} data-vfg-hero-pedestal="">
+      {/* Base disc — dark polished stone */}
+      <mesh position={[0, baseHeight / 2, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[baseRadius, baseRadius, baseHeight, 48]} />
+        <meshPhysicalMaterial
+          color="#1a1410"
+          roughness={0.25}
+          metalness={0.4}
+          clearcoat={0.7}
+          clearcoatRoughness={0.2}
+        />
+      </mesh>
+
+      {/* Under-glow ring — a thin emissive disc just above the floor,
+          slightly wider than the base, so the pedestal reads as
+          spot-lit from beneath without us paying for a real light. */}
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[baseRadius * 0.95, baseRadius * 1.15, 48]} />
+        <meshBasicMaterial color="#fff2cc" transparent opacity={0.35} toneMapped={false} />
+      </mesh>
+
+      {/* Top edge highlight — a thin brass band capping the base
+          disc, reads as architectural detailing. */}
+      <mesh position={[0, baseHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[baseRadius - 0.04, baseRadius, 48]} />
+        <meshPhysicalMaterial
+          color="#caa260"
+          roughness={0.3}
+          metalness={0.9}
+          emissive="#3a2a0c"
+          emissiveIntensity={0.2}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Connecting post — thin gilded cylinder so the billboard
+          appears mounted on a stand rather than floating. */}
+      <mesh position={[0, baseHeight + postHeight / 2, 0]}>
+        <cylinderGeometry args={[postRadius, postRadius, postHeight, 16]} />
+        <meshPhysicalMaterial
+          color="#caa260"
+          roughness={0.3}
+          metalness={0.9}
+          emissive="#3a2a0c"
+          emissiveIntensity={0.2}
+        />
+      </mesh>
+
+      {/* Billboard panel — the dress photo. `meshBasicMaterial` so
+          the photo renders at its stored colours regardless of
+          gallery lighting (matches the wall-frame convention). */}
+      <mesh ref={billboardRef} position={[0, billboardCenterY, 0]}>
+        <planeGeometry args={[billboardWidth, billboardHeight]} />
+        <meshBasicMaterial map={heroTexture} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
  * SouthWallWithDoorway — the boutique facade as seen from the foyer
  * sidewalk side. Replaces the gallery's south wall with three
  * rectangular sub-panels (left/right of the doorway, plus the lintel
@@ -1369,25 +1519,27 @@ function FoyerChamber() {
 
   return (
     <group data-vfg-room="foyer">
-      {/* Lobby floor — same polished Italian marble tiles as the
-          gallery proper, with repeats sized to the foyer's footprint
-          so the physical tile size matches across the doorway and
-          the slab visually runs uninterrupted through the entrance. */}
+      {/* Lobby floor — same polished marble tiles + real-time
+          reflection treatment as the gallery proper, so the slab
+          visually runs uninterrupted through the doorway. */}
       <mesh
         position={[0, 0, (z0 + z1) / 2]}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
       >
         <planeGeometry args={[FOYER_WIDTH, FOYER_DEPTH]} />
-        <meshPhysicalMaterial
+        <MeshReflectorMaterial
           map={foyerFloorTexture}
+          resolution={512}
+          mixBlur={2}
+          mixStrength={0.55}
+          blur={[300, 100]}
+          minDepthThreshold={0.4}
+          maxDepthThreshold={1.4}
+          depthScale={1.2}
           roughness={0.18}
           metalness={0.04}
-          clearcoat={0.85}
-          clearcoatRoughness={0.12}
-          sheen={0.15}
-          sheenColor="#fff5dd"
-          envMapIntensity={1.1}
+          reflectorOffset={0.001}
         />
       </mesh>
 

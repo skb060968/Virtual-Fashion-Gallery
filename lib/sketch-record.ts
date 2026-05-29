@@ -23,6 +23,15 @@ export type SketchRecord = {
   /** "/sketches/foo.jpg" under /public, or "https://..." absolute URL. */
   imageSrc: string;
   /**
+   * Optional: per-record curator audio (10-15 second voiceover or
+   * ambient music tied to this piece). Plays in the Zoom_View
+   * overlay when the record is opened. Same shape rule as
+   * `imageSrc` (relative path under `/public` or absolute https).
+   * Omit for records without an associated audio clip — the zoom
+   * view simply skips the player.
+   */
+  audioSrc?: string;
+  /**
    * Optional: alternate full-resolution views for this record, used by the
    * Zoom_View overlay to power a thumbnail-driven gallery (mirrors the GP
    * Fashion shop detail page). The first entry should be the same value as
@@ -135,6 +144,15 @@ export function validateSketchRecord(value: unknown): ValidateResult {
     errors.imageSrc = "must be a string";
   } else if (!IMAGE_SRC_RE.test(record.imageSrc)) {
     errors.imageSrc = "must start with '/' or 'https://'";
+  }
+
+  // audioSrc (optional). Same shape rule as imageSrc.
+  if (record.audioSrc !== undefined) {
+    if (typeof record.audioSrc !== "string") {
+      errors.audioSrc = "must be a string";
+    } else if (!IMAGE_SRC_RE.test(record.audioSrc)) {
+      errors.audioSrc = "must start with '/' or 'https://'";
+    }
   }
 
   // images (optional). When present, must be a non-empty array of strings,

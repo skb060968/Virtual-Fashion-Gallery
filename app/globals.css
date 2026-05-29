@@ -84,4 +84,35 @@
     outline: var(--focus-ring-width) solid var(--focus-ring-color);
     outline-offset: var(--focus-ring-offset-width);
   }
+
+  /* Entry overlay "Step inside" button pulse (immersive onboarding
+     cue). A slow gold ring blooms outward from the button so first-
+     time visitors recognise it as the call to action. The animation
+     lives behind a `data-vfg-entry-button` attribute selector so it
+     only fires on the actual entry button, not on every focused
+     element. */
+  @keyframes vfg-entry-pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(253, 230, 138, 0.6);
+    }
+    70% {
+      box-shadow: 0 0 0 14px rgba(253, 230, 138, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(253, 230, 138, 0);
+    }
+  }
+
+  [data-vfg-entry-button] {
+    animation: vfg-entry-pulse 2.4s ease-out infinite;
+  }
+
+  /* Reduced-motion users see a static button — the pulse is purely
+     decorative onboarding affordance, so silencing it under
+     prefers-reduced-motion satisfies Req 10.2. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-vfg-entry-button] {
+      animation: none;
+    }
+  }
 }

@@ -563,6 +563,32 @@ function ZoomViewOverlay({
                 {record.description}
               </p>
             ) : null}
+
+            {/* Per-record curator audio. Renders only when the
+                catalogue entry carries an `audioSrc`. The native
+                `<audio>` element gives us controls, scrubbing, and
+                playback state for free; styling is restrained so it
+                reads as a museum audio guide rather than a media
+                player. The element is keyed on `record.id` so a
+                new record opens with a fresh audio state — the
+                previous track is unmounted (and therefore stopped)
+                before the new one mounts. */}
+            {record.audioSrc ? (
+              <div className="mt-2 flex flex-col gap-1">
+                <p className="font-display text-xs uppercase tracking-[0.2em] text-gallery-muted">
+                  Curator audio
+                </p>
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <audio
+                  key={record.id}
+                  src={record.audioSrc}
+                  controls
+                  preload="none"
+                  className="w-full max-w-full"
+                  data-testid="zoom-view-audio"
+                />
+              </div>
+            ) : null}
             {/*
               Final focusable in the overlay so the focus trap has a
               well-defined "last" element. Rendered as a Next.js

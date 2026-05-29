@@ -30,6 +30,12 @@ import { useCallback, useEffect, useState } from "react";
 
 import { FOCUS_RING_CLASS } from "@/components/FocusRing";
 
+import {
+  initGalleryAudio,
+  playDoorWhoosh,
+  startAmbience,
+  stopAmbience,
+} from "./audio";
 import { useGalleryStore } from "./store/useGalleryStore";
 
 const HINT_AUTO_HIDE_MS = 6000;
@@ -79,6 +85,10 @@ export function EntryOverlay() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
+        // Same audio unlock as the click handler — Enter/Space
+        // counts as a user gesture for autoplay-policy purposes.
+        initGalleryAudio();
+        playDoorWhoosh();
         beginEntry();
       }
     };
@@ -91,9 +101,47 @@ export function EntryOverlay() {
   // walk completes the EntryWalkController flips entryStage to
   // "inside", which unlocks free navigation (WASD / arrow keys /
   // mouse-look / touch joystick).
+  //
+  // The click is also the user gesture that unlocks audio playback
+  // in browsers — we initialise the audio manager here and play the
+  // door-whoosh one-shot synchronously with the door-slide animation.
+  // The ambience loop is held back until the visitor is fully
+  // `"inside"` (handled by the effect below).
   const handleStepInside = useCallback(() => {
-    if (entryStage === "foyer") beginEntry();
+    if (entryStage !== "foyer") return;
+    initGalleryAudio();
+    playDoorWhoosh();
+    beginEntry();
   }, [entryStage, beginEntry]);
+
+  // Start the ambience loop once the visitor is inside the gallery
+  // proper, and stop it when the engine subtree unmounts (e.g.
+  // navigation to `/contact`). The audio manager itself is
+  // module-scoped and idempotent across remounts, so a returning
+  // visitor's ambience picks up cleanly.
+  useEffect(() => {
+    if (entryStage === "inside") {
+      startAmbience();
+    }
+    return () => {
+      // Cleanup runs on entry-stage transition AND on full unmount.
+      // We only pause when leaving the engine surface entirely; the
+      // simplest signal is "the component is being torn down," which
+      // happens on a route change. Inner stage transitions don't
+      // unmount EntryOverlay, so this cleanup safely no-ops while
+      // the visitor stays on /.
+      if (entryStage === "inside") return;
+    };
+  }, [entryStage]);
+
+  // Pause the ambience when this component unmounts entirely
+  // (route change to /contact). Module-scoped audio elements
+  // survive React unmounts, so we have to explicitly halt them.
+  useEffect(() => {
+    return () => {
+      stopAmbience();
+    };
+  }, []);
 
   if (entryStage === "foyer") {
     return (
