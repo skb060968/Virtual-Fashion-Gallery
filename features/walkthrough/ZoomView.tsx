@@ -572,10 +572,25 @@ function ZoomViewOverlay({
               on the contact page, the engine remounts and seats the
               camera at the same pose they left from, instead of
               teleporting them out to the foyer spawn.
+
+              `onClick` closes the Zoom_View *before* the navigation
+              fires. Otherwise `zoomOpen` stays true (the store
+              survives client-side navigation), so returning from
+              `/contact` would re-render the overlay over the gallery
+              with a stale image and force the visitor to dismiss it
+              before they can move. We mark the close as a "nav input"
+              so the camera-restore branch in `dismiss()` is skipped —
+              the visitor pressed the link deliberately, so we keep
+              their current camera pose.
             */}
             <Link
               ref={metadataAnchorRef}
               href="/contact"
+              onClick={() => {
+                const state = useGalleryStore.getState();
+                state.markNavInput();
+                state.closeZoom();
+              }}
               className={`mt-2 inline-flex w-fit items-center text-sm font-display uppercase tracking-wider text-gallery-muted underline underline-offset-4 hover:text-gallery-fg ${FOCUS_RING_CLASS}`}
             >
               Contact the designer

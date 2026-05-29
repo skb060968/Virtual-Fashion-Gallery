@@ -69,6 +69,7 @@ import {
 } from "./ProximityHighlighter";
 import { SceneRefBinder } from "./scene-ref";
 import { SketchFrame } from "./SketchFrame";
+import { createMarbleTileTexture } from "./textures/marbleTileTexture";
 
 // ----------------------------------------------------------------------
 // Room and spawn constants (Requirements 1.1, 1.8)
@@ -298,6 +299,17 @@ const HALF_DEPTH = ROOM.depth / 2;
 export function WalkthroughScene() {
   const scene = useThree((s) => s.scene);
 
+  // Procedural tile texture for both floors. ~0.8m physical tile
+  // size: gallery floor 11×18 → 13.75×22.5 repeats, foyer floor
+  // 11×9 → 13.75×11.25 repeats. The texture itself is shared; each
+  // floor gets its own `THREE.CanvasTexture` instance because the
+  // `repeat` configuration is per-texture state, not part of the
+  // underlying canvas.
+  const galleryFloorTexture = useMemo(
+    () => createMarbleTileTexture(ROOM.width / 0.8, ROOM.depth / 0.8),
+    [],
+  );
+
   // Compute frame placements once per catalogue identity. The catalogue
   // is a module-level `ReadonlyArray<SketchRecord>` so this useMemo
   // collapses to a single computation per scene mount in practice.
@@ -362,15 +374,16 @@ export function WalkthroughScene() {
           the visual focus.
           ---------------------------------------------------------------- */}
 
-      {/* Floor — polished Italian marble (Calacatta-style cream).
-          High-polish characteristics: low roughness with a strong
-          clearcoat for the lacquered surface, a touch of metalness
-          so the slab samples some environment colour and reads as
-          stone rather than painted board, and a soft sheen tinted
-          warm-cream so the polish picks up the ceiling-fixture
-          glow without going mirror-shiny. The matching marble runs
-          continuously from the foyer through the doorway so the
-          gallery floor reads as one uninterrupted slab. */}
+      {/* Floor — polished Italian marble tiles. The procedural
+          canvas texture paints a single Calacatta-style cream tile
+          with grout strips on the right and bottom edges; under
+          `THREE.RepeatWrapping` the strips line up edge-to-edge so
+          the floor reads as a regular grid of polished tiles. The
+          PBR characteristics (low roughness, strong clearcoat,
+          warm sheen) give each tile its lacquered look without
+          going mirror-shiny. The matching marble runs continuously
+          from the foyer through the doorway so the entire boutique
+          floor reads as one uninterrupted slab. */}
       <mesh
         position={[0, 0, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -379,7 +392,7 @@ export function WalkthroughScene() {
       >
         <planeGeometry args={[ROOM.width, ROOM.depth]} />
         <meshPhysicalMaterial
-          color="#ece5d3"
+          map={galleryFloorTexture}
           roughness={0.18}
           metalness={0.04}
           clearcoat={0.85}
@@ -1346,13 +1359,20 @@ function FoyerChamber() {
   const halfFoyerW = FOYER_WIDTH / 2;
   const wallY = ROOM.height / 2;
 
+  // Foyer floor uses the same procedural marble-tile texture as the
+  // gallery proper, with repeats sized to the foyer's footprint so
+  // the physical tile size (~0.8 m) matches across the doorway.
+  const foyerFloorTexture = useMemo(
+    () => createMarbleTileTexture(FOYER_WIDTH / 0.8, FOYER_DEPTH / 0.8),
+    [],
+  );
+
   return (
     <group data-vfg-room="foyer">
-      {/* Lobby floor — same polished Italian marble as the gallery
-          proper, so the slab visually runs uninterrupted through
-          the doorway and the visitor's eye reads the boutique as
-          one continuous high-end interior rather than two rooms
-          stitched together. */}
+      {/* Lobby floor — same polished Italian marble tiles as the
+          gallery proper, with repeats sized to the foyer's footprint
+          so the physical tile size matches across the doorway and
+          the slab visually runs uninterrupted through the entrance. */}
       <mesh
         position={[0, 0, (z0 + z1) / 2]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -1360,7 +1380,7 @@ function FoyerChamber() {
       >
         <planeGeometry args={[FOYER_WIDTH, FOYER_DEPTH]} />
         <meshPhysicalMaterial
-          color="#ece5d3"
+          map={foyerFloorTexture}
           roughness={0.18}
           metalness={0.04}
           clearcoat={0.85}
