@@ -1,36 +1,35 @@
 /**
- * Landing route shell (Requirement 4.1).
+ * Root route shell — the visitor lands directly on the immersive
+ * walkthrough.
  *
- * Server component shell for `/`. The route is a thin wrapper around
- * the `<LandingClient/>` client component declared in
- * `app/landing/LandingClient.tsx`, which owns all browser-only
- * concerns: the `framer-motion` enter/exit transition, the
- * `useReducedMotion()` swap, the `document.fonts.ready` watchdog, the
- * tab-reachable contact link, and the Walkthrough_Engine mount-failure
- * retry flow (Req 4.1, 4.4–4.8, 10.2).
+ * As of the landing/gallery merge, `/` is the gallery surface itself.
+ * The previous `<LandingClient/>` 2D entry page (with its tagline,
+ * primary CTA, and `framer-motion` exit transition) has been folded
+ * into the Walkthrough_Engine's own foyer + `<EntryOverlay/>`, so
+ * visitors see the boutique facade and the "Welcome to the showroom"
+ * card on first paint with no extra route hop.
  *
- * Keeping this file a server component means the initial HTML for `/`
- * is streamed without first booting a client runtime, which keeps
- * landing first paint inside the Req 4.1 budget. The
- * `<LandingClient/>` boundary is marked `"use client"` inside its own
- * file — this is the only place the landing surface needs the browser.
+ * Why a thin server-component wrapper:
+ *   - Streams the HTML for `/` without first booting a client runtime.
+ *   - Keeps the `"use client"` boundary scoped to `<GalleryClient/>`,
+ *     which is the only place the gallery surface needs the browser.
  *
- * `<LandingClient/>` calls `useSearchParams()` to read the
- * `?retry=mount` flag set by the mount watchdog (Req 4.8). In the App
- * Router, components that read search params must be wrapped in a
- * `<Suspense>` boundary so static prerendering can stream them; the
- * boundary's fallback is intentionally `null` so the hero paints from
- * the client without a flash of placeholder UI.
+ * The legacy `/gallery` route (`app/gallery/page.tsx`) now redirects
+ * to `/`, so any deep link or bookmark that pointed at the old URL
+ * keeps working. The `<GalleryClient/>` engine error boundary still
+ * routes to `<WebGLFallback/>` when WebGL is unavailable (Req 5.5,
+ * 10.4), so the merge does not regress on the fallback path.
  */
 
-import { Suspense } from "react";
+import { GalleryClient } from "@/app/gallery/GalleryClient";
+import type { Metadata } from "next";
 
-import { LandingClient } from "@/app/landing/LandingClient";
+export const metadata: Metadata = {
+  title: "Virtual Fashion Design Gallery",
+  description:
+    "Walk through the GP Fashion collection in a virtual showroom.",
+};
 
-export default function LandingPage() {
-  return (
-    <Suspense fallback={null}>
-      <LandingClient />
-    </Suspense>
-  );
+export default function HomePage() {
+  return <GalleryClient />;
 }

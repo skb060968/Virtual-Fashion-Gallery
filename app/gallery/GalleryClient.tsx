@@ -67,6 +67,7 @@ import {
 } from "react";
 
 import { WebGLFallback } from "@/components/WebGLFallback";
+import { ProtectedSurface } from "@/components/ProtectedSurface";
 import { detectWebGL } from "@/lib/webgl";
 
 // ---------------------------------------------------------------------------
@@ -231,16 +232,15 @@ export function GalleryClient() {
    * (the engine schedules the call from a double-rAF inside
    * `handleCreated`). The engine also flips
    * `useGalleryStore.walkthroughReady` to `true` on the same tick,
-   * which is what `<LandingClient/>`'s mount watchdog actually
-   * subscribes to (Req 4.8). Passing the prop here keeps the contract
-   * symmetric and gives a future caller (e.g. an analytics hook at
-   * the Req 13.5 seam) a non-store path to listen for readiness.
+   * so any other subscriber observes the same readiness signal.
+   * Passing the prop here keeps the contract symmetric and gives a
+   * future caller (e.g. an analytics hook at the Req 13.5 seam) a
+   * non-store path to listen for readiness.
    */
   const handleEngineReady = useCallback(() => {
-    // No-op in v1: LandingClient consumes the readiness signal via
-    // the gallery store. Defining the callback explicitly (rather
-    // than omitting the prop) makes the integration point obvious to
-    // future readers.
+    // No-op in v1: nothing currently consumes the prop signal.
+    // Defining the callback explicitly (rather than omitting the
+    // prop) makes the integration point obvious to future readers.
   }, []);
 
   const handleEngineError = useCallback(() => {
@@ -287,17 +287,25 @@ export function GalleryClient() {
   // renders 0×0, and drei `<Html transform>` panels project to a
   // degenerate camera matrix (which manifests as overlapping text at
   // the top of the screen).
+  //
+  // The engine subtree is wrapped in `<ProtectedSurface/>` so right-
+  // click and drag on the WebGL canvas itself are suppressed alongside
+  // the same protections already applied to the Zoom_View, the
+  // metadata panels, and the WebGL fallback. This is the v1
+  // Asset_Protection_Layer's casual-copying barrier (Req 6.1, 6.2).
   return (
     <div
       data-gallery-client="engine"
       className="fixed inset-0 overflow-hidden"
     >
-      <EngineErrorBoundary onError={handleEngineError}>
-        <WalkthroughEngine onReady={handleEngineReady} />
-        <ZoomView />
-        <EntryOverlay />
-        <TouchJoystick />
-      </EngineErrorBoundary>
+      <ProtectedSurface className="h-full w-full">
+        <EngineErrorBoundary onError={handleEngineError}>
+          <WalkthroughEngine onReady={handleEngineReady} />
+          <ZoomView />
+          <EntryOverlay />
+          <TouchJoystick />
+        </EngineErrorBoundary>
+      </ProtectedSurface>
     </div>
   );
 }

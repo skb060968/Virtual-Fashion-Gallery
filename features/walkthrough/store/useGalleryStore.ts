@@ -71,6 +71,17 @@ export type GalleryState = {
   // Entry sequence
   entryStage: EntryStage;
 
+  /**
+   * Last-known camera pose at the moment the engine subtree
+   * unmounted (e.g. visitor clicked a `<Link href="/contact">`
+   * navigation). Used by `<WalkthroughEngine/>`'s `handleCreated`
+   * on a subsequent mount to rehydrate the camera at the same pose
+   * the visitor had inside the gallery, so navigating to /contact
+   * and back doesn't tele them out to the foyer. `null` on a fresh
+   * page load (the engine then uses the standard SPAWN pose).
+   */
+  lastCameraPose: CameraSnapshot | null;
+
   // Actions
   setFocusedFrame: (id: string | null) => void;
   openZoom: (id: string, snapshot: CameraSnapshot) => void;
@@ -80,6 +91,8 @@ export type GalleryState = {
   setReducedMotion: (v: boolean) => void;
   beginEntry: () => void;
   completeEntry: () => void;
+  /** Persist the live camera pose across an engine unmount. */
+  setLastCameraPose: (pose: CameraSnapshot) => void;
 };
 
 export const useGalleryStore = create<GalleryState>((set) => ({
@@ -96,6 +109,8 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   reducedMotion: false,
 
   entryStage: "foyer",
+
+  lastCameraPose: null,
 
   // --- actions ---
 
@@ -148,7 +163,9 @@ export const useGalleryStore = create<GalleryState>((set) => ({
 
   /**
    * Marks the Walkthrough_Engine as ready (first scene frame rendered).
-   * Used by the LandingClient mount-failure watchdog (Req 4.8).
+   * Subscribers (engine readiness probes, analytics seams) listen for
+   * this transition; in v1 nothing actively consumes it, but the
+   * signal is preserved as a stable extension point.
    */
   setReady: () =>
     set((state) =>
@@ -182,4 +199,13 @@ export const useGalleryStore = create<GalleryState>((set) => ({
     set((state) =>
       state.entryStage === "inside" ? state : { entryStage: "inside" },
     ),
+
+  /**
+   * Persist the live camera pose so a subsequent engine mount can
+   * rehydrate the camera at the same position. The
+   * Walkthrough_Engine writes this on its cleanup `useEffect` so
+   * client-side navigation away (e.g. to `/contact`) does not lose
+   * the visitor's place inside the gallery.
+   */
+  setLastCameraPose: (pose) => set({ lastCameraPose: pose }),
 }));

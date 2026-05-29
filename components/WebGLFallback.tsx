@@ -55,7 +55,7 @@ const CONTACT_LINK_CLASS = `inline-flex items-center justify-center rounded-md b
  * both the top and the bottom of the fallback page so the Visitor
  * never has to scroll the entire catalogue to reach it. We use
  * Next.js's `<Link>` so client-side navigation to `/contact` reuses
- * the same `<ContactForm/>` component as the landing-page entry
+ * the same `<ContactForm/>` component as the gallery's contact entry
  * point.
  */
 function ContactLink({ position }: { position: "top" | "bottom" }) {

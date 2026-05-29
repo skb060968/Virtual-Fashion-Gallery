@@ -8,7 +8,7 @@
  * Two responsibilities:
  *   1. Render `<MotionConfig reducedMotion="user">` so framer-motion's
  *      built-in `useReducedMotion()` resolves to the OS preference for any
- *      descendant (LandingClient, ZoomView, ...).
+ *      descendant (ZoomView, ...).
  *   2. Mirror that boolean into the gallery zustand store as
  *      `reducedMotion: boolean`, so the Walkthrough_Engine can damp
  *      ambient camera animation (Req 10.3) without unmounting the scene.

@@ -38,8 +38,9 @@
  *     component, so the scene graph survives every resize.
  */
 
-import { Canvas, type RootState } from "@react-three/fiber";
+import { Canvas, type RootState, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
+import * as THREE from "three";
 
 import { Controls } from "./Controls";
 import { setEngineHandle } from "./engine-handle";
@@ -57,11 +58,9 @@ import {
 export type WalkthroughEngineProps = {
   /**
    * Invoked once the R3F `<Canvas>` has reported `onCreated` AND the
-   * first scene frame has been rendered. `<GalleryClient/>` uses this
-   * to clear the 5-second mount-failure watchdog from
-   * `<LandingClient/>` (Req 4.8); the gallery store's `setReady()` is
-   * also flipped on the same tick so any other subscriber observes
-   * the same readiness signal.
+   * first scene frame has been rendered. The gallery store's
+   * `setReady()` is also flipped on the same tick so any subscriber
+   * observes the same readiness signal.
    *
    * Optional: tests and Storybook mount the engine without consumers.
    */
@@ -130,21 +129,42 @@ export function WalkthroughEngine({
    *      subtree (Req 3.5, 3.7, 9.6, 14.3).
    *   3. Defer the readiness signal to the next animation frame so
    *      `setReady()` fires only after the first scene frame has had
-   *      a chance to render (Req 4.5, 4.8). This is what
-   *      `<LandingClient/>`'s 5s mount watchdog listens for.
+   *      a chance to render. Subscribers (analytics seams, future
+   *      mount probes) listen for this transition; in v1 nothing
+   *      actively gates on it but the signal is preserved as a
+   *      stable extension point.
    */
   const handleCreated = useMemo(
     () => (state: RootState) => {
       const { camera, invalidate } = state;
 
       // ---- Spawn pose (Req 1.1, 1.8) ----------------------------------
-      camera.position.set(
-        SPAWN.position[0],
-        SPAWN.position[1],
-        SPAWN.position[2],
-      );
+      // Three cases:
+      //   1. Returning visitor with a saved camera pose (came back
+      //      from /contact): rehydrate the saved pose so they pick
+      //      up exactly where they left off inside the gallery.
+      //   2. Returning visitor without a saved pose (engine remounted
+      //      without ever having reached "inside" — rare): use the
+      //      foyer SPAWN.
+      //   3. Fresh visit / page reload: walkthroughReady is false
+      //      and lastCameraPose is null. Use the foyer SPAWN.
       camera.rotation.order = "YXZ";
-      camera.rotation.set(SPAWN.pitch, SPAWN.yaw, 0, "YXZ");
+      const savedPose = useGalleryStore.getState().lastCameraPose;
+      if (savedPose) {
+        camera.position.set(
+          savedPose.position[0],
+          savedPose.position[1],
+          savedPose.position[2],
+        );
+        camera.rotation.set(savedPose.pitch, savedPose.yaw, 0, "YXZ");
+      } else {
+        camera.position.set(
+          SPAWN.position[0],
+          SPAWN.position[1],
+          SPAWN.position[2],
+        );
+        camera.rotation.set(SPAWN.pitch, SPAWN.yaw, 0, "YXZ");
+      }
       camera.updateMatrixWorld();
 
       // ---- Engine handle (Req 3.5, 3.7, 9.6, 14.3) --------------------
@@ -193,12 +213,20 @@ export function WalkthroughEngine({
     [onReady],
   );
 
-  // Reset the entry stage on every engine mount so navigating away
-  // from /gallery and back replays the showroom-style entry sequence.
-  // The store is module-scoped, so it would otherwise retain
-  // `"inside"` from a prior visit.
+  // Reset the entry stage if this is a fresh visit. The store is
+  // module-scoped, so `entryStage` survives navigation away to
+  // `/contact` and back — and we want to preserve `"inside"` in that
+  // case so the visitor returns to the same spot inside the gallery
+  // they left from. Only force a fresh foyer entry when the engine
+  // boots without a saved camera pose, i.e. the page was actually
+  // reloaded or the gallery is being entered for the first time in
+  // this session.
   useEffect(() => {
-    useGalleryStore.setState({ entryStage: "foyer" });
+    if (!useGalleryStore.getState().lastCameraPose) {
+      useGalleryStore.setState({ entryStage: "foyer" });
+    } else {
+      useGalleryStore.setState({ entryStage: "inside" });
+    }
   }, []);
 
   // Clear the engine handle on unmount so a remounted Canvas (e.g.
@@ -232,9 +260,49 @@ export function WalkthroughEngine({
     >
       <WalkthroughScene />
       <Controls colliders={GALLERY_COLLIDERS} />
+      <CameraPoseTracker />
     </Canvas>
   );
 }
+
+/**
+ * CameraPoseTracker — invisible R3F child whose only job is to
+ * persist the live camera pose into the gallery store every frame
+ * while the visitor is `"inside"`. When the engine subtree later
+ * unmounts (e.g. the visitor clicks the contact link), the next
+ * mount can rehydrate the camera from this saved pose so they pick
+ * up exactly where they left off instead of being teleported back
+ * to the foyer spawn.
+ *
+ * The cost per frame is a tiny THREE Euler decomposition + a single
+ * zustand `setLastCameraPose` call. The store action only triggers
+ * a notification for subscribers of `lastCameraPose`, of which the
+ * Walkthrough_Engine itself is not one (it reads the value lazily
+ * inside `handleCreated`), so this does not cause a render storm.
+ */
+function CameraPoseTracker(): null {
+  const camera = useThree((s) => s.camera);
+  const setLastCameraPose = useGalleryStore((s) => s.setLastCameraPose);
+
+  useFrame(() => {
+    // Only persist while the visitor is actually inside the gallery.
+    // Capturing during the foyer / entry-walk phases would lock in
+    // an unwanted intermediate pose if the visitor navigates away
+    // mid-cinematic.
+    if (useGalleryStore.getState().entryStage !== "inside") return;
+    const euler = poseEuler.setFromQuaternion(camera.quaternion, "YXZ");
+    setLastCameraPose({
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      yaw: euler.y,
+      pitch: euler.x,
+    });
+  });
+
+  return null;
+}
+
+/** Reusable Euler instance shared by the per-frame pose tracker. */
+const poseEuler = new THREE.Euler();
 
 export default WalkthroughEngine;
 

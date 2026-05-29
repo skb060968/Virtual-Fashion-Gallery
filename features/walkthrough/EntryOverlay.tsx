@@ -101,9 +101,10 @@ export function EntryOverlay() {
         className="pointer-events-none fixed inset-0 z-30 flex flex-col items-center justify-end gap-6 px-6 pb-12 sm:pb-16"
         data-vfg-entry-overlay={entryStage}
       >
-        <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-3 rounded-md border border-white/10 bg-black/55 px-5 py-4 text-center text-[var(--gallery-fg)] backdrop-blur-md">
-          <p className="font-display text-xs uppercase tracking-[0.3em] text-[var(--gallery-muted)]">
-            Welcome to the showroom
+        <div className="pointer-events-auto flex max-w-sm flex-col items-center gap-3 rounded-md border border-white/10 bg-black/55 px-5 py-4 text-center text-[var(--gallery-fg)] backdrop-blur-md">
+          <p className="font-display text-sm leading-relaxed text-[var(--gallery-fg)] sm:text-base">
+            Welcome to the walkable gallery displaying works of{" "}
+            <span className="text-[var(--gallery-accent)]">Piyush Bholla</span>
           </p>
           <button
             type="button"

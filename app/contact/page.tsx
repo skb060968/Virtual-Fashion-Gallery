@@ -96,13 +96,9 @@ export default function ContactPage() {
           aria-label="Contact page navigation"
           className="flex flex-wrap items-center gap-x-6 gap-y-2"
         >
-          <Link href="/gallery" className={BACK_LINK_CLASS} data-back-to="gallery">
+          <Link href="/" className={BACK_LINK_CLASS} data-back-to="gallery">
             <span aria-hidden="true">←</span>
             Back to gallery
-          </Link>
-          <Link href="/" className={BACK_LINK_CLASS} data-back-to="landing">
-            <span aria-hidden="true">←</span>
-            Back to landing
           </Link>
         </nav>
 

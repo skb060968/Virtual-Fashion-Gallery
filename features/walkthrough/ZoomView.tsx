@@ -43,6 +43,7 @@
  */
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -564,17 +565,21 @@ function ZoomViewOverlay({
             ) : null}
             {/*
               Final focusable in the overlay so the focus trap has a
-              well-defined "last" element. Rendered as a <a> to /contact
-              so it doubles as a meaningful escape hatch for keyboard
-              users; tabbing past it cycles back to the close button.
+              well-defined "last" element. Rendered as a Next.js
+              `<Link>` so navigation to `/contact` stays client-side
+              and the gallery store's `lastCameraPose` survives the
+              round-trip — when the visitor taps "Back to gallery"
+              on the contact page, the engine remounts and seats the
+              camera at the same pose they left from, instead of
+              teleporting them out to the foyer spawn.
             */}
-            <a
+            <Link
               ref={metadataAnchorRef}
               href="/contact"
               className={`mt-2 inline-flex w-fit items-center text-sm font-display uppercase tracking-wider text-gallery-muted underline underline-offset-4 hover:text-gallery-fg ${FOCUS_RING_CLASS}`}
             >
               Contact the designer
-            </a>
+            </Link>
           </motion.section>
         </div>
       </ProtectedSurface>

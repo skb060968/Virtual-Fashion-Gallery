@@ -6,9 +6,14 @@
  * Coarse-pointer (touch) navigation for the Walkthrough_Engine
  * (Requirements 1.4, 1.5, 1.6, 1.7).
  *
- *   1. Single-finger drag on the canvas -> rotate camera yaw/pitch at
- *      sensitivity ROTATE_SENSITIVITY in [0.002, 0.01] rad/CSS-pixel
- *      (Req 1.4). Pitch is clamped to +/-1.5533 rad after every delta
+ *   1. Single-finger horizontal drag on the canvas -> rotate camera
+ *      yaw at sensitivity ROTATE_SENSITIVITY in [0.002, 0.01]
+ *      rad/CSS-pixel (Req 1.4). Vertical drag is intentionally
+ *      ignored on touch devices: the gallery walk-through reads
+ *      better with the camera held level, and accidental up/down
+ *      drags shouldn't tilt the floor or ceiling into view on a
+ *      phone. Pitch stays at whatever value the camera had on entry
+ *      (typically 0, level), defensively clamped to ±1.5533 rad
  *      (Req 1.7).
  *   2. On-screen joystick (Tailwind-positioned absolute <div> in the
  *      bottom-left) -> translate forward/back/left/right at speed
@@ -136,15 +141,15 @@ export type TouchControlsProps = {
  * Internal mutable state for active touch pointers on the canvas. We
  * never mutate React state on every pointermove; instead we accumulate
  * deltas into refs and consume them inside useFrame so motion is
- * time-corrected (Req 1.2 / 1.5 phrasing of "per second").
+ * time-corrected (Req 1.2 / 1.5 phrasing of "per second"). Only the
+ * horizontal component is tracked — vertical drags do not change the
+ * camera pitch on touch devices.
  */
 type CanvasTouchState = {
   /** Active pointer ids -> last seen x/y in CSS-pixels. */
   pointers: Map<number, { x: number; y: number }>;
   /** Accumulated yaw delta in raw CSS-pixels (consumed by useFrame). */
   rotateDxPx: number;
-  /** Accumulated pitch delta in raw CSS-pixels (consumed by useFrame). */
-  rotateDyPx: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -162,11 +167,10 @@ export function TouchControls({
     camera.rotation.order = "YXZ";
   }, [camera]);
 
-  // ---- Canvas pointer state (rotate only) ---------------------------------
+  // ---- Canvas pointer state (rotate only, yaw axis only) -----------------
   const touchStateRef = useRef<CanvasTouchState>({
     pointers: new Map(),
     rotateDxPx: 0,
-    rotateDyPx: 0,
   });
 
   // -------------------------------------------------------------------------
@@ -200,17 +204,18 @@ export function TouchControls({
       if (!prev) return;
 
       const dx = e.clientX - prev.x;
-      const dy = e.clientY - prev.y;
       prev.x = e.clientX;
       prev.y = e.clientY;
 
-      // Single-finger drag → rotation. Multi-finger gestures are
-      // intentionally not consumed by this component (they used to
-      // drive a two-finger walk; that was removed because the
-      // joystick already handles touch translation).
+      // Single-finger drag → yaw only. Vertical drags do not change
+      // the camera pitch on touch devices (we keep the camera level
+      // for a more comfortable gallery walk-through). `prev.y` is
+      // kept up to date in case a future revision re-enables pitch
+      // but is otherwise unused. Multi-finger gestures are
+      // intentionally not consumed; the joystick handles touch
+      // translation.
       if (ts.pointers.size === 1) {
         ts.rotateDxPx += dx;
-        ts.rotateDyPx += dy;
       }
     };
 
@@ -249,24 +254,23 @@ export function TouchControls({
     // Gate touch input until the entry sequence completes.
     if (store().entryStage !== "inside") {
       ts.rotateDxPx = 0;
-      ts.rotateDyPx = 0;
       return;
     }
 
     // ---- Rotation -----------------------------------------------------------
-    if (ts.rotateDxPx !== 0 || ts.rotateDyPx !== 0) {
+    if (ts.rotateDxPx !== 0) {
       const yawDelta = ts.rotateDxPx * ROTATE_SENSITIVITY;
-      const pitchDelta = ts.rotateDyPx * ROTATE_SENSITIVITY;
       ts.rotateDxPx = 0;
-      ts.rotateDyPx = 0;
 
       // Sign convention: dragging right (positive dx) rotates the
       // camera to look right, which for a YXZ Euler camera means
-      // decreasing rotation.y.
+      // decreasing rotation.y. Pitch is intentionally not changed
+      // on touch devices — the gallery walk-through reads better
+      // with the camera held level, and accidental vertical drags
+      // shouldn't tilt the floor or ceiling into view on a phone.
       camera.rotation.y -= yawDelta;
-      // Dragging down (positive dy) rotates the look UP (the world
-      // appears to drag with the finger), so pitch increases.
-      camera.rotation.x -= pitchDelta;
+      // Defensive pitch clamp in case some other code path nudged
+      // it; touch-side drags never change pitch directly.
       camera.rotation.x = clamp(
         camera.rotation.x,
         -PITCH_LIMIT,

@@ -95,16 +95,17 @@ export const ROOM: RoomDimensions = {
  *
  * The Visitor enters the foyer chamber attached to the gallery's south
  * wall (which sits at +z) and faces the gallery doorway. The spawn
- * sits ~7.5m back from the doorway plane (z=9) — close to the foyer's
- * far back wall at z=18 with the standard 1m collision clearance —
- * giving the maximum sightline to the entire boutique facade. The
- * GP FASHION signboard above the doorway, the brass-bordered marquee,
- * the closed glass doors, and the surrounding facade panels all fit
+ * sits 8m back from the doorway plane (z=9), right at the foyer's
+ * far back wall (z=18) with the standard 1m collision clearance —
+ * the deepest reachable point in the foyer chamber. Gives the
+ * widest sightline to the entire boutique facade: the GP FASHION
+ * signboard above the doorway, the brass-bordered marquee, the
+ * closed glass doors, and the surrounding facade panels all fit
  * comfortably in the visitor's initial field of view.
  *
  * In three.js the default camera looks down −z, so `yaw = 0` keeps the
  * forward vector pointing toward −z — which from a foyer position at
- * `z = 16.5` aims through the doorway at `z = +9` and on into the
+ * `z = 17` aims through the doorway at `z = +9` and on into the
  * gallery proper. Pitch = 0 keeps the camera level. Eye height of
  * 1.6m is a standing-adult default and matches the mid-wall frame
  * anchor at `room.height / 2`.
@@ -114,7 +115,7 @@ export const ROOM: RoomDimensions = {
  * able to mutate it.
  */
 export const SPAWN = Object.freeze({
-  position: [0, 1.6, 16.5] as const,
+  position: [0, 1.6, 17] as const,
   yaw: 0,
   pitch: 0,
 });
@@ -361,10 +362,15 @@ export function WalkthroughScene() {
           the visual focus.
           ---------------------------------------------------------------- */}
 
-      {/* Floor — warm oak parquet. A subtle clearcoat layer picks up
-          a soft sheen off the bulb fixtures so the floor reads as
-          polished hardwood rather than matte cardboard, but a high
-          base roughness keeps it from going mirror-shiny. */}
+      {/* Floor — polished Italian marble (Calacatta-style cream).
+          High-polish characteristics: low roughness with a strong
+          clearcoat for the lacquered surface, a touch of metalness
+          so the slab samples some environment colour and reads as
+          stone rather than painted board, and a soft sheen tinted
+          warm-cream so the polish picks up the ceiling-fixture
+          glow without going mirror-shiny. The matching marble runs
+          continuously from the foyer through the doorway so the
+          gallery floor reads as one uninterrupted slab. */}
       <mesh
         position={[0, 0, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -373,13 +379,14 @@ export function WalkthroughScene() {
       >
         <planeGeometry args={[ROOM.width, ROOM.depth]} />
         <meshPhysicalMaterial
-          color="#9a7c52"
-          roughness={0.55}
-          metalness={0}
-          clearcoat={0.45}
-          clearcoatRoughness={0.35}
-          sheen={0.2}
-          sheenColor="#5a3e1c"
+          color="#ece5d3"
+          roughness={0.18}
+          metalness={0.04}
+          clearcoat={0.85}
+          clearcoatRoughness={0.12}
+          sheen={0.15}
+          sheenColor="#fff5dd"
+          envMapIntensity={1.1}
         />
       </mesh>
 
@@ -412,7 +419,13 @@ export function WalkthroughScene() {
           entry surface; the doors slide aside on entry. */}
       <FoyerChamber />
 
-      {/* North wall (z = −HALF_DEPTH, visible side faces +z) */}
+      {/* North wall (z = −HALF_DEPTH, visible side faces +z).
+          Premium-painted eggshell finish: a refined warm off-white,
+          low-roughness clearcoat for soft satin highlights, and a
+          touch of sheen so light grazing across the wall reads as
+          finely-laid pigment rather than flat matte board. The same
+          material is used on the east and west walls for an
+          uninterrupted gallery shell. */}
       <mesh
         position={[0, ROOM.height / 2, -HALF_DEPTH]}
         rotation={[0, 0, 0]}
@@ -421,11 +434,13 @@ export function WalkthroughScene() {
       >
         <planeGeometry args={[ROOM.width, ROOM.height]} />
         <meshPhysicalMaterial
-          color="#f0e6d2"
-          roughness={0.78}
-          metalness={0}
-          clearcoat={0.15}
-          clearcoatRoughness={0.6}
+          color="#efe8d8"
+          roughness={0.5}
+          metalness={0.02}
+          clearcoat={0.45}
+          clearcoatRoughness={0.3}
+          sheen={0.18}
+          sheenColor="#fff5dd"
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -439,11 +454,13 @@ export function WalkthroughScene() {
       >
         <planeGeometry args={[ROOM.depth, ROOM.height]} />
         <meshPhysicalMaterial
-          color="#f0e6d2"
-          roughness={0.78}
-          metalness={0}
-          clearcoat={0.15}
-          clearcoatRoughness={0.6}
+          color="#efe8d8"
+          roughness={0.5}
+          metalness={0.02}
+          clearcoat={0.45}
+          clearcoatRoughness={0.3}
+          sheen={0.18}
+          sheenColor="#fff5dd"
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -457,11 +474,13 @@ export function WalkthroughScene() {
       >
         <planeGeometry args={[ROOM.depth, ROOM.height]} />
         <meshPhysicalMaterial
-          color="#f0e6d2"
-          roughness={0.78}
-          metalness={0}
-          clearcoat={0.15}
-          clearcoatRoughness={0.6}
+          color="#efe8d8"
+          roughness={0.5}
+          metalness={0.02}
+          clearcoat={0.45}
+          clearcoatRoughness={0.3}
+          sheen={0.18}
+          sheenColor="#fff5dd"
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -508,16 +527,22 @@ export function WalkthroughScene() {
         />
       ))}
 
-      {/* Designer plaque (Req 14.2 extension) — a small brass-on-wood
-          legend mounted just above the first frame in the catalogue
-          (the designer's portrait). Reads "ABOUT THE DESIGNER" so
-          visitors recognise this isn't another dress and know to
-          click for the bio. The plaque is purely cosmetic 3D
-          geometry; clicking the underlying frame still opens the
-          existing Zoom_View. */}
-      {sketches[0]?.id === "designer" ? (
-        <DesignerPlaque wallPose={wallPoses[0]} />
-      ) : null}
+      {/* Designer plaque (Req 14.2 extension) — a small brass-on-cream
+          legend mounted just above the designer's portrait frame.
+          Reads "DESIGNER" so visitors recognise this isn't another
+          dress and know to click for the bio. The plaque is purely
+          cosmetic 3D geometry; clicking the underlying frame still
+          opens the existing Zoom_View. We look up the designer's
+          wall pose by id (rather than catalogue index 0) so moving
+          the designer record around in `lib/sketches.ts` reanchors
+          the plaque automatically. */}
+      {(() => {
+        const designerIndex = sketches.findIndex(
+          (record) => record.id === "designer",
+        );
+        if (designerIndex < 0) return null;
+        return <DesignerPlaque wallPose={wallPoses[designerIndex]} />;
+      })()}
 
       {sketches.map((record, i) =>
         // Skip the dress-style metadata caption for the designer
@@ -1323,9 +1348,11 @@ function FoyerChamber() {
 
   return (
     <group data-vfg-room="foyer">
-      {/* Lobby floor — polished walnut. Clearcoat picks up a soft
-          sheen off the wall-washer fixtures so the floor reads as
-          finished hardwood. */}
+      {/* Lobby floor — same polished Italian marble as the gallery
+          proper, so the slab visually runs uninterrupted through
+          the doorway and the visitor's eye reads the boutique as
+          one continuous high-end interior rather than two rooms
+          stitched together. */}
       <mesh
         position={[0, 0, (z0 + z1) / 2]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -1333,13 +1360,14 @@ function FoyerChamber() {
       >
         <planeGeometry args={[FOYER_WIDTH, FOYER_DEPTH]} />
         <meshPhysicalMaterial
-          color="#7a5a3c"
-          roughness={0.45}
-          metalness={0}
-          clearcoat={0.55}
-          clearcoatRoughness={0.3}
-          sheen={0.25}
-          sheenColor="#3a2410"
+          color="#ece5d3"
+          roughness={0.18}
+          metalness={0.04}
+          clearcoat={0.85}
+          clearcoatRoughness={0.12}
+          sheen={0.15}
+          sheenColor="#fff5dd"
+          envMapIntensity={1.1}
         />
       </mesh>
 

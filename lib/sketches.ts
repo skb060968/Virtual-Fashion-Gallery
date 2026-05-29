@@ -113,23 +113,36 @@ const DRESS_ALT_COUNTS: ReadonlyArray<readonly [number, number]> = [
   [22, 1],
 ];
 
+/**
+ * Index of the designer record inside the published catalogue. Chosen
+ * so the placement walk anchors the designer's portrait at the centre
+ * of the gallery's north wall (the wall the visitor sees straight
+ * ahead after stepping through the sliding doors). With wall
+ * capacities of 9 / 5 / 9 (west, north, east), the catalogue indices
+ * 0..8 land on the west wall, 9..13 land on the north wall, and
+ * 14..22 land on the east wall — so index 11 is the third of the
+ * five north-wall frames, the geometric centre. That gives 11 dresses
+ * to the visitor's left as they walk in and 11 to their right.
+ */
+const DESIGNER_CATALOGUE_INDEX = 11;
+
+const DRESS_RECORDS = DRESS_ALT_COUNTS.map(([n, alt]) =>
+  makeDressRecord(n, alt),
+);
+
+const DESIGNER_RECORD: SketchRecord = {
+  id: "designer",
+  title: "Piyush Bholla",
+  date: "2024-01-01",
+  description:
+    "Founder & Creative Director, GP Fashion. An Indian fashion designer working across kidswear, menswear, and womenswear from a Delhi studio. Trained at NIFT Bengaluru and FIT New York, with a practice grounded in detail, craftsmanship, and the quiet pleasure of well-made clothes. Each collection is a balancing act between tradition and innovation, polish and playfulness — clothes that feel authentic, elegant, and joyful to wear. Philosophy: authenticity woven into every detail.",
+  imageSrc: "/images/about/piyush1.jpg",
+};
+
 export const sketches: ReadonlyArray<SketchRecord> = [
-  // Designer portrait — sits first in catalogue order so the placement
-  // walk anchors it at the start of the west wall, the first artwork
-  // the visitor encounters on their right after stepping through the
-  // sliding doors. Click → Zoom_View shows the designer's photograph
-  // alongside the same metadata layout as a dress (the zoom panel
-  // already renders `title`, `medium`, and `description`). Single-
-  // image record — no thumbnail strip in the Zoom_View.
-  {
-    id: "designer",
-    title: "Piyush Bholla",
-    date: "2024-01-01",
-    description:
-      "Founder & Creative Director, GP Fashion. An Indian fashion designer working across kidswear, menswear, and womenswear from a Delhi studio. Trained at NIFT Bengaluru and FIT New York, with a practice grounded in detail, craftsmanship, and the quiet pleasure of well-made clothes. Each collection is a balancing act between tradition and innovation, polish and playfulness — clothes that feel authentic, elegant, and joyful to wear. Philosophy: authenticity woven into every detail.",
-    imageSrc: "/images/about/piyush1.jpg",
-  },
-  ...DRESS_ALT_COUNTS.map(([n, alt]) => makeDressRecord(n, alt)),
+  ...DRESS_RECORDS.slice(0, DESIGNER_CATALOGUE_INDEX),
+  DESIGNER_RECORD,
+  ...DRESS_RECORDS.slice(DESIGNER_CATALOGUE_INDEX),
 ];
 
 // Run at module top level so any catalogue violation (missing field, bad date,
