@@ -223,21 +223,16 @@ export const GALLERY_COLLIDERS: ReadonlyArray<AABB> = [
   },
 
   // Stanchion barrier around the hero pedestal at the gallery centre.
-  // Four thin slab colliders — one per side of the rope square — sit
-  // at ±0.4m from the origin. With CLEARANCE = 1.0m the visitor is
-  // stopped at 0.4 + 1.0 = 1.4m from centre, exactly at the rope line.
-  // Using four separate slabs (instead of one large AABB) means the
-  // visitor can approach from any cardinal direction and be stopped
-  // cleanly without being pushed sideways by an oversized box.
-  //
-  // North slab (blocks approach from -z)
-  { min: [-1.4, 0, -0.4], max: [1.4, 2.0, -0.35] },
-  // South slab (blocks approach from +z)
-  { min: [-1.4, 0, 0.35], max: [1.4, 2.0, 0.4] },
-  // West slab (blocks approach from -x)
-  { min: [-0.4, 0, -1.4], max: [-0.35, 2.0, 1.4] },
-  // East slab (blocks approach from +x)
-  { min: [0.35, 0, -1.4], max: [0.4, 2.0, 1.4] },
+  // A single AABB centred on the origin with half-extents matching the
+  // rope square (1.4m). With CLEARANCE = 1.0m the resolver expands each
+  // face outward by 1.0m before blocking, so the camera is stopped at
+  // 0.4 + 1.0 = 1.4m from centre on every axis — exactly at the rope line.
+  // Using one box (rather than four thin slabs) avoids the axis-ordering
+  // artefact where a slab's perpendicular extent fires on the wrong axis.
+  {
+    min: [-0.4, 0, -0.4],
+    max: [0.4, 2.0, 0.4],
+  },
 ];
 
 // ----------------------------------------------------------------------
@@ -1121,8 +1116,9 @@ function FoyerLogo({
 }
 
 /**
- * StanchionBarrier — four brass pillars connected by red velvet ropes
- * arranged in a square around the hero pedestal at the gallery centre.
+ * StanchionBarrier — four chrome-plated pillars connected by deep-red
+ * velvet ropes with natural catenary sag, arranged in a square around
+ * the hero pedestal at the gallery centre.
  *
  * Layout (top-down view, pedestal at origin):
  *
@@ -1132,20 +1128,37 @@ function FoyerLogo({
  *          |                      |
  *       SW pillar ——— rope ——— SE pillar
  *
- * Each pillar sits at (±1.4, 0, ±1.4) — 1.4m from centre on both
- * axes — so the rope square has a half-extent of 1.4m. The colliders
- * in `GALLERY_COLLIDERS` stop the visitor at exactly this boundary.
- *
- * Pillar anatomy (bottom to top):
- *   - Weighted base disc (dark polished stone, radius 0.12m)
- *   - Brass post (radius 0.025m, height 1.0m)
- *   - Decorative finial cap (small sphere, radius 0.055m)
- *
- * Rope anatomy:
- *   - A thin cylinder connecting adjacent pillar tops, coloured deep
- *     crimson velvet. The cylinder is tilted to span the gap between
- *     the two hook points (0.9m height on each pillar).
+ * Each pillar sits at (±1.4, 0, ±1.4). Ropes are TubeGeometry paths
+ * built from a catenary curve so they hang naturally between the
+ * finial spheres at the top of each pillar.
  */
+
+/**
+ * Build a catenary curve between two 3D points with a given sag depth.
+ * Returns an array of THREE.Vector3 points sampled along the curve.
+ * The catenary is approximated as a parabola in the vertical plane
+ * containing the two endpoints — accurate enough for a short rope.
+ */
+function buildCatenaryCurve(
+  a: THREE.Vector3,
+  b: THREE.Vector3,
+  sagDepth: number,
+  segments: number,
+): THREE.Vector3[] {
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    // Linear interpolation along the horizontal span.
+    const x = a.x + (b.x - a.x) * t;
+    const z = a.z + (b.z - a.z) * t;
+    // Parabolic sag: 0 at both ends, maximum at t=0.5.
+    const sag = sagDepth * 4 * t * (1 - t);
+    const y = a.y + (b.y - a.y) * t - sag;
+    points.push(new THREE.Vector3(x, y, z));
+  }
+  return points;
+}
+
 function StanchionBarrier() {
   // Pillar positions — four corners of the rope square.
   const ROPE_HALF = 1.4;
@@ -1156,8 +1169,11 @@ function StanchionBarrier() {
     [-ROPE_HALF, ROPE_HALF],  // NW
   ];
 
-  // Rope hook height on each pillar (world Y).
-  const HOOK_Y = 0.9;
+  // World Y of the finial sphere centre — rope hooks here.
+  const BASE_H = 0.08;
+  const POST_H = 1.0;
+  const FINIAL_R = 0.055;
+  const HOOK_Y = BASE_H + POST_H + FINIAL_R; // ≈ 1.195
 
   // Rope segments: pairs of adjacent corner indices (wrap-around).
   const ropeSegments: Array<[number, number]> = [
@@ -1167,77 +1183,74 @@ function StanchionBarrier() {
     [3, 0], // W side
   ];
 
+  // Build catenary tube geometries once (stable across renders).
+  const ropeGeometries = useMemo(() => {
+    return ropeSegments.map(([ai, bi]) => {
+      const [ax, az] = corners[ai];
+      const [bx, bz] = corners[bi];
+      const start = new THREE.Vector3(ax, HOOK_Y, az);
+      const end = new THREE.Vector3(bx, HOOK_Y, bz);
+      const pts = buildCatenaryCurve(start, end, 0.08, 32);
+      const path = new THREE.CatmullRomCurve3(pts);
+      return new THREE.TubeGeometry(path, 32, 0.018, 10, false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <group data-vfg-stanchion-barrier="">
-      {/* Pillars */}
+      {/* Pillars — chrome-plated finish */}
       {corners.map(([cx, cz], i) => (
         <group key={`pillar-${i}`} position={[cx, 0, cz]}>
-          {/* Weighted base disc */}
-          <mesh position={[0, 0.04, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.12, 0.14, 0.08, 24]} />
+          {/* Weighted base disc — dark polished stone */}
+          <mesh position={[0, BASE_H / 2, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.12, 0.14, BASE_H, 24]} />
             <meshPhysicalMaterial
-              color="#1a1410"
-              roughness={0.3}
-              metalness={0.5}
-              clearcoat={0.6}
-              clearcoatRoughness={0.2}
-            />
-          </mesh>
-          {/* Brass post */}
-          <mesh position={[0, 0.08 + 1.0 / 2, 0]} castShadow>
-            <cylinderGeometry args={[0.025, 0.025, 1.0, 16]} />
-            <meshPhysicalMaterial
-              color="#caa260"
-              roughness={0.25}
-              metalness={0.92}
-              emissive="#3a2a0c"
-              emissiveIntensity={0.2}
-            />
-          </mesh>
-          {/* Finial cap — small decorative sphere */}
-          <mesh position={[0, 0.08 + 1.0 + 0.055, 0]} castShadow>
-            <sphereGeometry args={[0.055, 16, 12]} />
-            <meshPhysicalMaterial
-              color="#d4a04a"
+              color="#1c1c1e"
               roughness={0.2}
-              metalness={0.95}
-              emissive="#5a3e10"
-              emissiveIntensity={0.3}
+              metalness={0.6}
+              clearcoat={0.8}
+              clearcoatRoughness={0.1}
+            />
+          </mesh>
+          {/* Chrome post — near-white, very low roughness, full metalness */}
+          <mesh position={[0, BASE_H + POST_H / 2, 0]} castShadow>
+            <cylinderGeometry args={[0.025, 0.025, POST_H, 20]} />
+            <meshPhysicalMaterial
+              color="#e8e8ec"
+              roughness={0.05}
+              metalness={1.0}
+              clearcoat={1.0}
+              clearcoatRoughness={0.05}
+            />
+          </mesh>
+          {/* Chrome finial sphere */}
+          <mesh position={[0, HOOK_Y, 0]} castShadow>
+            <sphereGeometry args={[FINIAL_R, 24, 18]} />
+            <meshPhysicalMaterial
+              color="#e8e8ec"
+              roughness={0.05}
+              metalness={1.0}
+              clearcoat={1.0}
+              clearcoatRoughness={0.05}
             />
           </mesh>
         </group>
       ))}
 
-      {/* Velvet ropes */}
-      {ropeSegments.map(([ai, bi], i) => {
-        const [ax, az] = corners[ai];
-        const [bx, bz] = corners[bi];
-        // Midpoint of the rope segment.
-        const mx = (ax + bx) / 2;
-        const mz = (az + bz) / 2;
-        // Length of the rope.
-        const dx = bx - ax;
-        const dz = bz - az;
-        const length = Math.sqrt(dx * dx + dz * dz);
-        // Yaw angle to orient the cylinder along the segment.
-        const yaw = Math.atan2(dx, dz);
-        return (
-          <mesh
-            key={`rope-${i}`}
-            position={[mx, HOOK_Y, mz]}
-            rotation={[0, yaw, Math.PI / 2]}
-          >
-            <cylinderGeometry args={[0.018, 0.018, length, 12]} />
-            <meshPhysicalMaterial
-              color="#8b0000"
-              roughness={0.85}
-              metalness={0.0}
-              sheen={0.6}
-              sheenColor="#c00020"
-            />
-          </mesh>
-        );
-      })}
+      {/* Deep-red velvet ropes with catenary sag */}
+      {ropeGeometries.map((geo, i) => (
+        <mesh key={`rope-${i}`} geometry={geo}>
+          <meshPhysicalMaterial
+            color="#6b0000"
+            roughness={0.9}
+            metalness={0.0}
+            sheen={0.5}
+            sheenColor="#a00010"
+            sheenRoughness={0.6}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }

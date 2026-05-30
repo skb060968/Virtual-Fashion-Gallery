@@ -90,3 +90,83 @@ describe("resolveMotion", () => {
     expect(out[0]).toBeCloseTo(2 - CLEARANCE, 10);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stanchion barrier collider tests
+//
+// The four slab colliders sit at ±0.35–0.4m from the origin. With
+// CLEARANCE = 1.0m the camera is stopped at exactly ±1.4m — the rope line.
+// ---------------------------------------------------------------------------
+
+const STANCHION_COLLIDERS: ReadonlyArray<AABB> = [
+  // Single AABB: half-extents 0.4m. With CLEARANCE=1.0m the camera
+  // stops at 0.4 + 1.0 = 1.4m from centre on every axis.
+  { min: [-0.4, 0, -0.4], max: [0.4, 2.0, 0.4] },
+];
+
+// Eye height used throughout — matches the gallery spawn.
+const EYE_Y = 1.6;
+// Expected stop distance from centre on each cardinal axis.
+const ROPE_LINE = 1.4;
+
+describe("stanchion barrier colliders", () => {
+  it("stops camera at rope line when approaching from +z (south)", () => {
+    // Camera at z=3 moving toward origin along -z.
+    const cur: Vec3 = [0, EYE_Y, 3];
+    const vel: Vec3 = [0, 0, -10];
+    const out = resolveMotion(cur, vel, 1, STANCHION_COLLIDERS);
+    // South slab max[z]=0.4, stop = 0.4 + CLEARANCE = 1.4
+    expect(out[2]).toBeCloseTo(ROPE_LINE, 9);
+  });
+
+  it("stops camera at rope line when approaching from -z (north)", () => {
+    const cur: Vec3 = [0, EYE_Y, -3];
+    const vel: Vec3 = [0, 0, 10];
+    const out = resolveMotion(cur, vel, 1, STANCHION_COLLIDERS);
+    // North slab min[z]=-0.4, stop = -0.4 - CLEARANCE = -1.4
+    expect(out[2]).toBeCloseTo(-ROPE_LINE, 9);
+  });
+
+  it("stops camera at rope line when approaching from +x (east)", () => {
+    const cur: Vec3 = [3, EYE_Y, 0];
+    const vel: Vec3 = [-10, 0, 0];
+    const out = resolveMotion(cur, vel, 1, STANCHION_COLLIDERS);
+    // East slab max[x]=0.4, stop = 0.4 + CLEARANCE = 1.4
+    expect(out[0]).toBeCloseTo(ROPE_LINE, 9);
+  });
+
+  it("stops camera at rope line when approaching from -x (west)", () => {
+    const cur: Vec3 = [-3, EYE_Y, 0];
+    const vel: Vec3 = [10, 0, 0];
+    const out = resolveMotion(cur, vel, 1, STANCHION_COLLIDERS);
+    // West slab min[x]=-0.4, stop = -0.4 - CLEARANCE = -1.4
+    expect(out[0]).toBeCloseTo(-ROPE_LINE, 9);
+  });
+
+  it("stops camera at rope corner when approaching diagonally from SW (within footprint)", () => {
+    // Camera at (-3, EYE_Y, 0) — already inside the Z footprint of the box —
+    // moving diagonally toward the pedestal (+x, -z). The X axis fires because
+    // z=0 is inside the expanded Z range [-1.4, 1.4].
+    const cur: Vec3 = [-3, EYE_Y, 0];
+    const vel: Vec3 = [10, 0, -1];
+    const out = resolveMotion(cur, vel, 1, STANCHION_COLLIDERS);
+    expect(out[0]).toBeCloseTo(-ROPE_LINE, 9);
+  });
+
+  it("stops camera at rope corner when approaching diagonally from NE (within footprint)", () => {
+    // Camera at (3, EYE_Y, 0) — inside the Z footprint — moving toward pedestal.
+    const cur: Vec3 = [3, EYE_Y, 0];
+    const vel: Vec3 = [-10, 0, 1];
+    const out = resolveMotion(cur, vel, 1, STANCHION_COLLIDERS);
+    expect(out[0]).toBeCloseTo(ROPE_LINE, 9);
+  });
+
+  it("allows camera to move freely outside the rope square", () => {
+    // Camera at (2, EYE_Y, 0) moving along +z — parallel to the east slab,
+    // well outside the barrier. Should not be blocked.
+    const cur: Vec3 = [2, EYE_Y, -3];
+    const vel: Vec3 = [0, 0, 1];
+    const out = resolveMotion(cur, vel, 1, STANCHION_COLLIDERS);
+    expect(out[2]).toBeCloseTo(-2, 9);
+  });
+});
