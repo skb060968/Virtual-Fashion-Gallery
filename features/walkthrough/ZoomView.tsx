@@ -61,6 +61,7 @@ import type { SketchRecord } from "@/lib/sketch-record";
 
 import { getEngineHandle } from "./engine-handle";
 import { useGalleryStore } from "./store/useGalleryStore";
+import { isDressRecord } from "@/lib/dress-meta";
 
 /** Req 3.3 / 3.6: open/close transitions complete within 500ms. */
 const OPEN_DURATION_MS = 320;
@@ -159,7 +160,11 @@ function ZoomViewOverlay({
 }: ZoomViewOverlayProps) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const metadataAnchorRef = useRef<HTMLAnchorElement | null>(null);
+  const detailLinkRef = useRef<HTMLAnchorElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  // True when the active record is a dress (not the designer profile).
+  const isDress = isDressRecord(record.id);
 
   /**
    * Records may carry an `images[]` array of alternate full-resolution
@@ -263,7 +268,11 @@ function ZoomViewOverlay({
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (event.key !== "Tab") return;
       const first = closeButtonRef.current;
-      const last = metadataAnchorRef.current;
+      // When a dress record is open the "View Details" link is the last
+      // focusable element; otherwise the "Contact the designer" link is last.
+      const last = isDress
+        ? detailLinkRef.current
+        : metadataAnchorRef.current;
       if (!first || !last) return;
 
       const active = document.activeElement;
@@ -282,7 +291,7 @@ function ZoomViewOverlay({
         }
       }
     },
-    [],
+    [isDress],
   );
 
   // ---------------------------------------------------------------
@@ -621,6 +630,28 @@ function ZoomViewOverlay({
             >
               Contact the designer
             </Link>
+
+            {/* "View Details" link — dress records only (Req 1.1, 1.2).
+                Becomes the last focusable element in the focus trap when
+                rendered, so `detailLinkRef` is used as the trap's "last"
+                boundary instead of `metadataAnchorRef` (Req 1.4).
+                On click, closes the overlay and marks nav input so the
+                camera-restore branch is skipped (Req 1.3). */}
+            {isDress ? (
+              <Link
+                ref={detailLinkRef}
+                href={`/dress/${record.id}`}
+                onClick={() => {
+                  const state = useGalleryStore.getState();
+                  state.markNavInput();
+                  state.closeZoom();
+                }}
+                className={`inline-flex w-fit items-center rounded bg-amber-500 px-4 py-2 text-sm font-display uppercase tracking-wider text-black shadow transition-colors hover:bg-amber-400 ${FOCUS_RING_CLASS}`}
+                data-testid="zoom-view-detail-link"
+              >
+                View Details
+              </Link>
+            ) : null}
           </motion.section>
         </div>
       </ProtectedSurface>
