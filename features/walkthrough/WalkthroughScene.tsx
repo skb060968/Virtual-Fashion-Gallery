@@ -1213,26 +1213,26 @@ function StanchionBarrier() {
               clearcoatRoughness={0.1}
             />
           </mesh>
-          {/* Chrome post — near-white, very low roughness, full metalness */}
+          {/* Chrome post — shiny golden metal */}
           <mesh position={[0, BASE_H + POST_H / 2, 0]} castShadow>
             <cylinderGeometry args={[0.025, 0.025, POST_H, 20]} />
-            <meshPhysicalMaterial
-              color="#e8e8ec"
-              roughness={0.05}
-              metalness={1.0}
-              clearcoat={1.0}
-              clearcoatRoughness={0.05}
+            <meshStandardMaterial
+              color="#d4a030"
+              roughness={0.15}
+              metalness={0.85}
+              emissive="#7a4a00"
+              emissiveIntensity={0.35}
             />
           </mesh>
-          {/* Chrome finial sphere */}
+          {/* Golden finial sphere */}
           <mesh position={[0, HOOK_Y, 0]} castShadow>
             <sphereGeometry args={[FINIAL_R, 24, 18]} />
-            <meshPhysicalMaterial
-              color="#e8e8ec"
-              roughness={0.05}
-              metalness={1.0}
-              clearcoat={1.0}
-              clearcoatRoughness={0.05}
+            <meshStandardMaterial
+              color="#d4a030"
+              roughness={0.12}
+              metalness={0.88}
+              emissive="#7a4a00"
+              emissiveIntensity={0.4}
             />
           </mesh>
         </group>
@@ -1363,8 +1363,14 @@ function HeroPedestal() {
 
       {/* Billboard panel — the dress photo. `meshBasicMaterial` so
           the photo renders at its stored colours regardless of
-          gallery lighting (matches the wall-frame convention). */}
-      <mesh ref={billboardRef} position={[0, billboardCenterY, 0]}>
+          gallery lighting (matches the wall-frame convention).
+          onClick stopPropagation prevents clicks on the billboard
+          from passing through to SketchFrame colliders behind it. */}
+      <mesh
+        ref={billboardRef}
+        position={[0, billboardCenterY, 0]}
+        onClick={(e) => e.stopPropagation()}
+      >
         <planeGeometry args={[billboardWidth, billboardHeight]} />
         <meshBasicMaterial map={heroTexture} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
