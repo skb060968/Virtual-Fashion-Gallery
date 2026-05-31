@@ -1913,13 +1913,12 @@ function SlidingGlassDoors() {
       }
     }
 
-    // Once the doors have finished opening, hand off to the "inside"
-    // stage so the entry overlay collapses to the nav-hint chip and
-    // the keyboard / mouse / touch controls take effect. We test
-    // `entryStage` instead of `target` so this handoff cannot fire on
-    // the closing direction (which never actually happens in v1, but
-    // keeps the intent explicit).
-    if (entryStage === "entering" && opennessRef.current >= 0.999) {
+    // Hand off to "inside" once the doors are visually open enough
+    // (~70% open reads as fully clear to the visitor). Firing early
+    // means the joystick and controls are ready before the tail of
+    // the spring animation finishes, eliminating the perceived gap
+    // between "doors open" and "I can move" on slow mobile devices.
+    if (entryStage === "entering" && opennessRef.current >= 0.7) {
       completeEntry();
     }
 
