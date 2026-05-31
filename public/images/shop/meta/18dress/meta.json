@@ -2,11 +2,5 @@
   "slug": "18dress",
   "name": "Style 18",
   "description": "",
-  "price": 1099000,
-  "sizes": [
-    "S",
-    "M",
-    "L",
-    "XL"
-  ]
+  "category": "WOMENSWEAR"
 }

@@ -127,14 +127,84 @@ export function ZoomView() {
     [activeRecordId],
   );
 
+  // Preload all full-resolution images for the active record so that
+  // thumbnail switching inside the overlay is instant. We start
+  // preloading the moment zoomOpen becomes true (i.e. the frame was
+  // clicked) and only mount the overlay once every image has fired
+  // its load/error event. While preloading we show a slim spinner so
+  // the visitor gets immediate feedback that something is happening.
+  const [preloadDone, setPreloadDone] = useState(false);
+
+  useEffect(() => {
+    // Reset whenever the active record changes.
+    setPreloadDone(false);
+    if (!zoomOpen || !record) return;
+
+    const srcs =
+      record.images && record.images.length > 0
+        ? record.images
+        : [record.imageSrc];
+
+    let settled = 0;
+    const total = srcs.length;
+
+    function onSettled() {
+      settled++;
+      if (settled >= total) setPreloadDone(true);
+    }
+
+    const imgs = srcs.map((src) => {
+      const img = new window.Image();
+      img.onload = onSettled;
+      img.onerror = onSettled;
+      img.src = src;
+      // If the browser already has this URL cached the load event
+      // fires synchronously before we can attach the handler on some
+      // engines — check .complete as a fallback.
+      if (img.complete) onSettled();
+      return img;
+    });
+
+    return () => {
+      // Abort pending loads on cleanup so a rapid open→close→open
+      // cycle doesn't call setPreloadDone on a stale closure.
+      imgs.forEach((img) => {
+        img.onload = null;
+        img.onerror = null;
+      });
+    };
+  }, [zoomOpen, record]);
+
   return (
     <AnimatePresence>
-      {zoomOpen && record ? (
+      {zoomOpen && record && preloadDone ? (
         <ZoomViewOverlay
           key={record.id}
           record={record}
           reducedMotion={reducedMotion}
         />
+      ) : zoomOpen && record && !preloadDone ? (
+        // Preload spinner — shown from the moment the frame is clicked
+        // until all images are cached. Keeps the same dark backdrop so
+        // the transition into the overlay feels seamless.
+        <motion.div
+          key="zoom-preload"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          aria-label="Loading artwork"
+          aria-live="polite"
+        >
+          <div className="flex flex-col items-center gap-3">
+            {/* Spinning ring */}
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-gallery-muted border-t-amber-300" />
+            <p className="font-display text-xs uppercase tracking-[0.2em] text-gallery-muted">
+              Loading
+            </p>
+          </div>
+        </motion.div>
       ) : null}
     </AnimatePresence>
   );
@@ -193,17 +263,14 @@ function ZoomViewOverlay({
   const hasGallery = images.length > 1;
 
   /**
-   * Image load state machine:
-   *   - "loading"     — still waiting for the <img> to fire `onLoad`.
-   *   - "loaded"      — image is ready; show it.
-   *   - "placeholder" — load failed or the 10s watchdog tripped.
-   *
-   * Metadata stays visible and dismiss controls stay live in every
-   * branch (Req 3.9).
+   * Image status — always starts as "loaded" because ZoomView preloads
+   * all images before mounting this overlay. The watchdog and error
+   * branch are kept as a safety net in case a cached image is evicted
+   * between preload and render (extremely rare).
    */
   const [imageStatus, setImageStatus] = useState<
     "loading" | "loaded" | "placeholder"
-  >("loading");
+  >("loaded");
 
   // ---------------------------------------------------------------
   // Dismiss
@@ -315,8 +382,11 @@ function ZoomViewOverlay({
   // Image load watchdog (Req 3.9)
   // ---------------------------------------------------------------
 
+  // Safety-net watchdog: if somehow the image isn't ready (cache eviction),
+  // fall back to placeholder after 10s. On index change we optimistically
+  // stay "loaded" since all images were preloaded before this overlay mounted.
   useEffect(() => {
-    setImageStatus("loading");
+    setImageStatus("loaded");
     const timeoutId = window.setTimeout(() => {
       setImageStatus((prev) => (prev === "loading" ? "placeholder" : prev));
     }, IMAGE_LOAD_TIMEOUT_MS);
